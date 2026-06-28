@@ -1,0 +1,2606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>阪南キリスト集会</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0; padding: 0;
+    }
+    html, body {
+      height: 100%;
+      background: #D8C8B4; /* visible on desktop outside the app frame */
+      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── App shell (max-width frame) ── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 430px;
+      margin: 0 auto;
+      background: #F6EDE0;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,0,0,0.2);
+    }
+
+    /* ── Scrollable content ── */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      position: relative;
+    }
+    #content::-webkit-scrollbar { display: none; }
+
+    /* ── Screen visibility ── */
+    .screen { display: none; }
+    .screen.active {
+      display: block;
+      animation: fadeUp 0.22s ease-out both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0.3; transform: translateY(8px); }
+      to   { opacity: 1;   transform: translateY(0);   }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* ── Bottom nav: default state ── */
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 4px 2px 6px;
+      position: relative;
+      transition: opacity 0.1s;
+    }
+    .nav-btn:active { opacity: 0.6; }
+
+    /* Top accent line */
+    .nav-btn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 3px;
+      background: #C8781E;
+      border-radius: 0 0 4px 4px;
+      transition: width 0.28s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .nav-btn.active::before { width: 36px; }
+
+    /* Icon pill background */
+    .nav-icon-bg {
+      width: 46px; height: 30px;
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.25s;
+      background: transparent;
+    }
+    .nav-btn.active .nav-icon-bg { background: #FEF0DC; }
+
+    /* Icon color */
+    .nav-ico { color: #C0AE9C; transition: color 0.25s; display: block; }
+    .nav-btn.active .nav-ico { color: #C8781E; }
+
+    /* Label */
+    .nav-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: #C0AE9C;
+      transition: color 0.25s;
+      white-space: nowrap;
+    }
+    .nav-btn.active .nav-lbl { color: #C8781E; font-weight: 700; }
+
+    /* ── Card components ── */
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 3px 20px rgba(44, 22, 4, 0.08);
+    }
+
+    /* ── Hero banner ── */
+    .hero {
+      border-radius: 26px;
+      position: relative;
+      overflow: hidden;
+      padding: 26px 22px 30px;
+    }
+    .hero-glow {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      pointer-events: none;
+    }
+
+    /* ── Icon chip ── */
+    .icon-chip {
+      width: 48px; height: 48px;
+      border-radius: 15px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Decorative background blobs (fixed) ── */
+    .bg-blob {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── メッセージ詳細フルスクリーン ── */
+    .fullscreen-page {
+      position: fixed;
+      inset: 0;
+      background: white;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateX(100vw);
+      transition: opacity 0.28s ease-out, transform 0.28s ease-out;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 55;
+    }
+    .fullscreen-page.open {
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* ── マークダウン要約スタイル ── */
+    .md-body h1 { font-size:20px; font-weight:800; color:#1E0E04; margin:0 0 14px; line-height:1.3; }
+    .md-body h2 { font-size:17px; font-weight:700; color:#1E0E04; margin:18px 0 8px; padding-bottom:6px; border-bottom:1.5px solid #EAD9C4; line-height:1.3; }
+    .md-body h3 { font-size:15px; font-weight:700; color:#2C1A0E; margin:14px 0 6px; }
+    .md-body p  { font-size:16px; color:#2C1A0E; line-height:1.85; margin-bottom:12px; }
+    .md-body strong { font-weight:700; color:#1E0E04; }
+    .md-body ul, .md-body ol { padding-left:18px; margin-bottom:12px; }
+    .md-body li { font-size:15px; color:#2C1A0E; line-height:1.75; margin-bottom:5px; }
+    .md-body blockquote { border-left:4px solid #C8781E; padding:8px 14px; background:#FEF8F0; margin:12px 0; border-radius:0 8px 8px 0; color:#5A3A18; }
+    .md-body a { color:#1A6FB0; font-weight:700; text-decoration:underline; word-break:break-all; }
+    .md-body a:active { opacity:0.6; }
+
+    /* ── 報告：3行超は折りたたみ（マークダウン対応のためmax-heightで制御） ── */
+    .report-text {
+      max-height: 90px; /* 16px × 1.85 × 3 ≈ 89px（約3行分） */
+      overflow: hidden;
+    }
+    .report-text.expanded {
+      max-height: none;
+      overflow: visible;
+    }
+    .report-toggle {
+      display: none;
+      align-items: center;
+      gap: 3px;
+      margin-top: 6px;
+      border: none;
+      background: none;
+      padding: 4px 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: #C8781E;
+      cursor: pointer;
+    }
+    .report-toggle svg { transition: transform 0.2s; }
+    .report-toggle.expanded svg { transform: rotate(180deg); }
+
+    /* ── 検索モーダル（上からスライドダウン） ── */
+    #searchModal {
+      position: fixed;
+      inset: 0;
+      z-index: 59;
+      background: #F6EDE0;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-100%);
+      transition: opacity 0.28s ease-out, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #searchModal.open {
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── 検索カテゴリタブ ── */
+    .search-tab {
+      flex: 1;
+      padding: 9px 4px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #9A8070;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .search-tab.active {
+      background: white;
+      color: #C8781E;
+      box-shadow: 0 1px 5px rgba(44,22,4,0.13);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════ 読み込み中オーバーレイ（z-index:60／データ取得完了まで全画面を覆う） ════════════════ -->
+<div id="loadingOverlay" style="
+  position: fixed; inset: 0; z-index: 60;
+  background: #F6EDE0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  transition: opacity 0.25s ease-out;
+">
+  <div id="loadingSpinner" style="
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 5px solid #EAD8C4; border-top-color: #C8781E;
+    animation: spin 0.9s linear infinite;
+  "></div>
+  <p style="font-size:15px; font-weight:700; color:#9A6A40; letter-spacing:0.04em;">読み込み中です…</p>
+  <div id="loadingError" style="display:none; text-align:center; padding:0 32px;">
+    <p style="font-size:15px; font-weight:700; color:#C84848; margin-bottom:8px;">データの読み込みに失敗しました</p>
+    <p style="font-size:13px; color:#9A8070; line-height:1.7;">通信状態をご確認のうえ、<br>画面を再読み込みしてください。</p>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- ════════════════ HEADER ════════════════ -->
+  <header style="
+    flex-shrink: 0;
+    background: #F6EDE0;
+    padding: 10px 20px 8px;
+    position: relative; z-index: 20;
+  ">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+
+      <!-- Left: church name + screen title -->
+      <div style="min-width:0; flex:1;">
+        <p style="font-size:10px; color:#C8781E; font-weight:700; letter-spacing:0.12em; margin-bottom:2px;">
+          阪南キリスト集会
+        </p>
+        <h1 id="screenTitle" style="font-size:22px; font-weight:800; color:#1E0E04; line-height:1.15;">
+          ホーム
+        </h1>
+      </div>
+
+      <!-- Right: search button (48×48 ≥ シニア推奨44px) -->
+      <button
+        id="searchBtn"
+        aria-label="検索"
+        onclick="openSearchModal()"
+        style="
+          width:48px; height:48px; border-radius:50%;
+          border:none; cursor:pointer; flex-shrink:0;
+          background:white;
+          display:flex; align-items:center; justify-content:center;
+          box-shadow: 0 3px 14px rgba(44,22,4,0.14);
+        "
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="#C8781E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Decorative separator -->
+    <div style="
+      height:1.5px; margin-top:8px;
+      background:linear-gradient(to right, transparent, #DEC4A8 25%, #DEC4A8 75%, transparent);
+    "></div>
+  </header>
+
+  <!-- ════════════════ CONTENT ════════════════ -->
+  <div id="content">
+
+    <!-- Fixed decorative bg blobs -->
+    <div class="bg-blob" style="
+      width:220px; height:220px; top:70px; right:-65px;
+      background:rgba(200,120,30,0.07);
+    "></div>
+    <div class="bg-blob" style="
+      width:260px; height:210px; bottom:80px; left:-90px;
+      border-radius:55% 45% 60% 40%;
+      background:rgba(200,120,30,0.05);
+    "></div>
+
+    <!-- ──── HOME ──────────────────────────── -->
+    <section id="screen-home" class="screen active"
+             style="padding:16px 20px 30px; position:relative; z-index:1;">
+
+      <!-- Hero banner: Amber -->
+      <div class="hero"
+           style="background:linear-gradient(140deg,#C8781E 0%,#E8A050 100%); margin-bottom:14px;">
+        <div class="hero-glow" style="width:210px;height:210px; top:-70px; right:-65px;"></div>
+        <div class="hero-glow" style="width:110px;height:110px; bottom:-44px; left:20px;"></div>
+        <!-- Signature element: cross motif -->
+        <svg style="position:absolute; right:22px; bottom:20px; opacity:0.12;"
+             width="58" height="58" viewBox="0 0 58 58">
+          <rect x="25" y="4" width="8" height="50" rx="4" fill="white"/>
+          <rect x="4" y="22" width="50" height="8" rx="4" fill="white"/>
+        </svg>
+        <p style="font-size:33px; font-weight:900; color:white; line-height:1.1; margin-bottom:12px;">
+          ホーム
+        </p>
+        <p style="font-size:17px; color:rgba(255,255,255,0.92); line-height:1.75;">
+          直近の予定と<br>過去の記録を確認できます
+        </p>
+      </div>
+
+      <!-- ── 直近の予定 ── -->
+      <div style="display:flex; align-items:center; gap:10px; margin:20px 0 12px;">
+        <div style="width:4px; height:22px; background:#C8781E; border-radius:2px; flex-shrink:0;"></div>
+        <h2 style="font-size:19px; font-weight:800; color:#1E0E04;">直近の予定</h2>
+      </div>
+      <!-- Schedule grid は JS で注入。横スクロール対応 -->
+      <div style="position:relative;">
+        <div id="home-schedule" class="card" style="overflow-x:auto; -webkit-overflow-scrolling:touch;"></div>
+        <div id="schedule-fade" style="
+          position:absolute; top:0; right:0; bottom:0; width:32px;
+          background:linear-gradient(to right, transparent, white 85%);
+          border-radius:0 20px 20px 0;
+          pointer-events:none; z-index:2;
+          opacity:0; transition:opacity 0.25s;
+        "></div>
+      </div>
+      <p id="schedule-hint" style="
+        font-size:12px; color:#B0A090; text-align:right;
+        margin-top:5px; padding-right:2px; display:none;
+      ">← スライドして確認</p>
+
+      <!-- ── 記録を見る（見出し＋タグ絞り込みを同じ行に） ── -->
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin:24px 0 12px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <div style="width:4px; height:22px; background:#C8781E; border-radius:2px; flex-shrink:0;"></div>
+          <h2 style="font-size:19px; font-weight:800; color:#1E0E04; white-space:nowrap;">記録を見る</h2>
+        </div>
+
+        <!-- 絞り込みドロップダウン（コンパクト・右寄せ） -->
+        <div style="position:relative; flex-shrink:0;">
+          <button id="recordsTagBtn" style="
+            height:38px; border:none; cursor:pointer;
+            background:#5A4030; border-radius:20px;
+            display:flex; flex-direction:row; align-items:center; justify-content:center;
+            padding:0 14px; gap:5px; white-space:nowrap;
+          ">
+            <span id="recordsTagLabel" style="font-size:13px; font-weight:600; color:white; opacity:0.82;">タグ</span>
+            <svg id="recordsTagChevron" width="14" height="14" viewBox="0 0 24 24"
+                 fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round"
+                 style="transition:transform 0.22s; flex-shrink:0;">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <ul id="recordsTagMenu" style="
+            display:none; position:absolute; top:44px; right:0; z-index:40;
+            background:white; border-radius:14px; overflow:hidden;
+            box-shadow:0 8px 28px rgba(44,22,4,0.16);
+            list-style:none; margin:0; padding:0; max-height:260px; overflow-y:auto;
+            min-width:170px;
+          "></ul>
+        </div>
+      </div>
+
+      <!-- Record cards are injected by JS -->
+      <div id="home-records"></div>
+    </section>
+
+    <!-- ──── REPORT ────────────────────────── -->
+    <section id="screen-report" class="screen"
+             style="padding:16px 20px 30px; position:relative; z-index:1;">
+
+      <!-- Hero banner: Teal -->
+      <div class="hero"
+           style="background:linear-gradient(140deg,#0882A8 0%,#22BACC 100%); margin-bottom:14px;">
+        <div class="hero-glow" style="width:210px;height:210px; top:-70px; right:-65px;"></div>
+        <div class="hero-glow" style="width:110px;height:110px; bottom:-44px; left:20px;"></div>
+        <!-- Megaphone hint -->
+        <svg style="position:absolute; right:22px; bottom:20px; opacity:0.12;"
+             width="52" height="52" viewBox="0 0 24 24" fill="none"
+             stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <p style="font-size:33px; font-weight:900; color:white; line-height:1.1; margin-bottom:12px;">
+          報告
+        </p>
+        <p style="font-size:17px; color:rgba(255,255,255,0.92); line-height:1.75;">
+          集会のお知らせや<br>報告を確認できます
+        </p>
+      </div>
+
+      <!-- 報告リスト (JS で注入) -->
+      <div id="report-list"></div>
+    </section>
+
+    <!-- ──── PRAYER ────────────────────────── -->
+    <section id="screen-prayer" class="screen"
+             style="padding:16px 20px 30px; position:relative; z-index:1;">
+
+      <!-- Hero banner: Sage Green -->
+      <div class="hero"
+           style="background:linear-gradient(140deg,#508050 0%,#78BA76 100%); margin-bottom:14px;">
+        <div class="hero-glow" style="width:210px;height:210px; top:-70px; right:-65px;"></div>
+        <div class="hero-glow" style="width:110px;height:110px; bottom:-44px; left:20px;"></div>
+        <!-- Cross motif for prayer -->
+        <svg style="position:absolute; right:22px; bottom:20px; opacity:0.14;"
+             width="58" height="58" viewBox="0 0 58 58">
+          <rect x="25" y="4" width="8" height="50" rx="4" fill="white"/>
+          <rect x="4" y="22" width="50" height="8" rx="4" fill="white"/>
+        </svg>
+        <p style="font-size:33px; font-weight:900; color:white; line-height:1.1; margin-bottom:12px;">
+          祈りの課題
+        </p>
+        <p style="font-size:17px; color:rgba(255,255,255,0.92); line-height:1.75;">
+          兄弟姉妹の祈りの課題が<br>ここに表示されます
+        </p>
+      </div>
+
+      <!-- ── 絞り込みドロップダウン（sticky）── -->
+      <div id="prayer-dropdowns" style="
+        position:sticky; top:0; z-index:15;
+        background:#F6EDE0;
+        margin:0 -20px; padding:10px 20px 13px;
+        border-bottom:1px solid rgba(220,180,140,0.35);
+      ">
+        <div style="display:flex; gap:10px;">
+
+          <!-- 名前 -->
+          <div style="flex:1; position:relative;">
+            <button id="prayerNameBtn" style="
+              width:100%; height:46px; border:none; cursor:pointer;
+              background:#5A4030; border-radius:12px;
+              display:flex; flex-direction:row; align-items:center; justify-content:center;
+              padding:0 12px; gap:6px;
+            ">
+              <span id="prayerNameLabel" style="font-size:15px; font-weight:600; color:white; opacity:0.82;">名前</span>
+              <svg id="prayerNameChevron" width="16" height="16" viewBox="0 0 24 24"
+                   fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round"
+                   style="transition:transform 0.22s;">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <ul id="prayerNameMenu" style="
+              display:none; position:absolute; top:50px; left:0; right:0; z-index:40;
+              background:white; border-radius:14px; overflow:hidden;
+              box-shadow:0 8px 28px rgba(44,22,4,0.16);
+              list-style:none; margin:0; padding:0; max-height:260px; overflow-y:auto;
+            "></ul>
+          </div>
+
+          <!-- ステータス -->
+          <div style="flex:1; position:relative;">
+            <button id="prayerStatusBtn" style="
+              width:100%; height:46px; border:none; cursor:pointer;
+              background:#5A4030; border-radius:12px;
+              display:flex; flex-direction:row; align-items:center; justify-content:center;
+              padding:0 12px; gap:6px;
+            ">
+              <span id="prayerStatusLabel" style="font-size:15px; font-weight:600; color:white; opacity:0.82;">ステータス</span>
+              <svg id="prayerStatusChevron" width="16" height="16" viewBox="0 0 24 24"
+                   fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round"
+                   style="transition:transform 0.22s;">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <ul id="prayerStatusMenu" style="
+              display:none; position:absolute; top:50px; left:0; right:0; z-index:40;
+              background:white; border-radius:14px; overflow:hidden;
+              box-shadow:0 8px 28px rgba(44,22,4,0.16);
+              list-style:none; margin:0; padding:0;
+            "></ul>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 課題リスト (JS で注入) -->
+      <div id="prayer-list" style="padding-top:12px;"></div>
+    </section>
+
+    <!-- ──── MESSAGE ───────────────────────── -->
+    <section id="screen-message" class="screen"
+             style="padding:16px 20px 30px; position:relative; z-index:1;">
+
+      <!-- Hero banner: Plum -->
+      <div class="hero"
+           style="background:linear-gradient(140deg,#6858B8 0%,#9888D8 100%); margin-bottom:14px;">
+        <div class="hero-glow" style="width:210px;height:210px; top:-70px; right:-65px;"></div>
+        <div class="hero-glow" style="width:110px;height:110px; bottom:-44px; left:20px;"></div>
+        <!-- Open book hint -->
+        <svg style="position:absolute; right:20px; bottom:18px; opacity:0.12;"
+             width="56" height="56" viewBox="0 0 24 24" fill="none"
+             stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <p style="font-size:33px; font-weight:900; color:white; line-height:1.1; margin-bottom:12px;">
+          メッセージ
+        </p>
+        <p style="font-size:17px; color:rgba(255,255,255,0.92); line-height:1.75;">
+          説教の動画と要約が<br>ここに確認できます
+        </p>
+      </div>
+
+      <!-- ── 絞り込みドロップダウン（3つ・sticky）── -->
+      <div style="
+        position:sticky; top:0; z-index:15;
+        background:#F6EDE0;
+        margin:0 -20px; padding:10px 20px 13px;
+        border-bottom:1px solid rgba(220,180,140,0.35);
+      ">
+        <div style="display:flex; gap:8px;">
+
+          <!-- 分類 -->
+          <div style="flex:1; position:relative;">
+            <button id="msg分類Btn" style="width:100%;height:42px;border:none;cursor:pointer;background:#5A4030;border-radius:12px;display:flex;flex-direction:row;align-items:center;justify-content:center;padding:0 8px;gap:5px;">
+              <span id="msg分類Label" style="font-size:14px;font-weight:600;color:white;opacity:0.82;">分類</span>
+              <svg id="msg分類Chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <ul id="msg分類Menu" style="display:none;position:absolute;top:46px;left:0;z-index:40;background:white;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(44,22,4,0.16);list-style:none;margin:0;padding:0;max-height:260px;overflow-y:auto;min-width:190px;"></ul>
+          </div>
+
+          <!-- 語り手 -->
+          <div style="flex:1; position:relative;">
+            <button id="msg語り手Btn" style="width:100%;height:42px;border:none;cursor:pointer;background:#5A4030;border-radius:12px;display:flex;flex-direction:row;align-items:center;justify-content:center;padding:0 8px;gap:5px;">
+              <span id="msg語り手Label" style="font-size:14px;font-weight:600;color:white;opacity:0.82;">語り手</span>
+              <svg id="msg語り手Chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <ul id="msg語り手Menu" style="display:none;position:absolute;top:46px;left:0;z-index:40;background:white;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(44,22,4,0.16);list-style:none;margin:0;padding:0;max-height:260px;overflow-y:auto;min-width:190px;"></ul>
+          </div>
+
+          <!-- 書簡 -->
+          <div style="flex:1; position:relative;">
+            <button id="msg書簡Btn" style="width:100%;height:42px;border:none;cursor:pointer;background:#5A4030;border-radius:12px;display:flex;flex-direction:row;align-items:center;justify-content:center;padding:0 8px;gap:5px;">
+              <span id="msg書簡Label" style="font-size:14px;font-weight:600;color:white;opacity:0.82;">書簡</span>
+              <svg id="msg書簡Chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <ul id="msg書簡Menu" style="display:none;position:absolute;top:46px;right:0;z-index:40;background:white;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(44,22,4,0.16);list-style:none;margin:0;padding:0;max-height:260px;overflow-y:auto;min-width:190px;"></ul>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- メッセージリスト (JS で注入) -->
+      <div id="msg-list" style="padding-top:12px;"></div>
+    </section>
+
+    <!-- ──── FAVORITE (いいね) ──────────────── -->
+    <section id="screen-favorite" class="screen"
+             style="padding:16px 20px 30px; position:relative; z-index:1;">
+
+      <!-- Hero banner: Rose -->
+      <div class="hero"
+           style="background:linear-gradient(140deg,#C84870 0%,#F07898 100%); margin-bottom:14px;">
+        <div class="hero-glow" style="width:210px;height:210px; top:-70px; right:-65px;"></div>
+        <div class="hero-glow" style="width:110px;height:110px; bottom:-44px; left:20px;"></div>
+        <!-- Heart motif -->
+        <svg style="position:absolute; right:20px; bottom:18px; opacity:0.14;"
+             width="56" height="56" viewBox="0 0 24 24" fill="white">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06
+                   a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23
+                   l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <p style="font-size:33px; font-weight:900; color:white; line-height:1.1; margin-bottom:12px;">
+          いいね
+        </p>
+        <p style="font-size:17px; color:rgba(255,255,255,0.92); line-height:1.75;">
+          ♥ をつけたメッセージが<br>ここに保存されます
+        </p>
+      </div>
+
+      <!-- いいねリスト (JS で注入。タブ表示のたびに再描画) -->
+      <div id="fav-list" style="padding-top:4px;"></div>
+    </section>
+
+  </div><!-- /#content -->
+
+  <!-- ════════════════ BOTTOM NAV ════════════════ -->
+  <nav style="
+    flex-shrink: 0;
+    background: white;
+    border-top: 1.5px solid #E8D4C0;
+    position: relative; z-index: 20;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  ">
+    <div style="display:flex; height:60px;">
+
+      <!-- HOME -->
+      <button class="nav-btn active"
+              data-tab="home" data-title="ホーム" aria-label="ホーム">
+        <div class="nav-icon-bg">
+          <svg class="nav-ico" width="22" height="22" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <span class="nav-lbl">ホーム</span>
+      </button>
+
+      <!-- REPORT -->
+      <button class="nav-btn"
+              data-tab="report" data-title="報告" aria-label="報告">
+        <div class="nav-icon-bg">
+          <svg class="nav-ico" width="22" height="22" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <span class="nav-lbl">報告</span>
+      </button>
+
+      <!-- PRAYER -->
+      <button class="nav-btn"
+              data-tab="prayer" data-title="祈りの課題" aria-label="祈りの課題">
+        <div class="nav-icon-bg">
+          <!-- 炎アイコン（祈りのろうそく） -->
+          <svg class="nav-ico" width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          </svg>
+        </div>
+        <span class="nav-lbl">祈りの課題</span>
+      </button>
+
+      <!-- MESSAGE -->
+      <button class="nav-btn"
+              data-tab="message" data-title="メッセージ" aria-label="メッセージ">
+        <div class="nav-icon-bg">
+          <svg class="nav-ico" width="22" height="22" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </div>
+        <span class="nav-lbl">メッセージ</span>
+      </button>
+
+      <!-- FAVORITE (いいね) -->
+      <button class="nav-btn"
+              data-tab="favorite" data-title="いいね" aria-label="いいね">
+        <div class="nav-icon-bg">
+          <svg class="nav-ico" width="22" height="22" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06
+                     a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23
+                     l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+        <span class="nav-lbl">いいね</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- ══ カスタムスクロールバー（#app 内 / position:absolute） ══ -->
+  <div id="fsBar" style="
+    position:absolute; right:0; z-index:22; width:28px;
+    pointer-events:none; opacity:0; transition:opacity 0.3s;
+  ">
+    <!-- トラック線 -->
+    <div style="position:absolute;right:5px;top:0;bottom:0;width:4px;
+                background:rgba(200,170,140,0.22);border-radius:2px;"></div>
+    <!-- サム -->
+    <div id="fsThumb" style="position:absolute;right:5px;width:4px;height:40px;
+                             background:#C8A070;border-radius:2px;top:0;"></div>
+    <!-- タッチ領域（28px幅・透明） -->
+    <div id="fsTouch" style="position:absolute;right:0;top:0;bottom:0;width:28px;
+                             pointer-events:auto;cursor:pointer;touch-action:none;"></div>
+  </div>
+
+  <!-- ══ 月バブル群（スクロールバーを押すとすべての月がバブルとして表示／フォト風スクラブ） ══ -->
+  <div id="fsBubbleStack" style="
+    position:absolute; inset:0; z-index:24;
+    display:none; pointer-events:none;
+  "></div>
+
+</div><!-- /#app -->
+
+  <!-- ════════ メッセージ詳細（フルスクリーン）════════ -->
+  <div id="msgModal" class="fullscreen-page">
+
+    <!-- ヘッダー -->
+    <div style="flex-shrink:0; display:flex; align-items:center; gap:10px; padding:13px 16px 12px; background:white; border-bottom:1.5px solid #EAD9C4;">
+      <button onclick="closeMessageModal()" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" aria-label="戻る">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E0E04" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h2 id="msgModalTitle" style="flex:1;font-size:17px;font-weight:700;color:#1E0E04;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></h2>
+      <button id="msgModalHeart" onclick="toggleFavModal()" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#C0B0A0;" aria-label="いいね">
+        <svg id="msgModalHeartSvg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- スクロール領域 -->
+    <div id="msgModalScroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+
+      <!-- YouTube 16:9 -->
+      <div style="position:relative;padding-top:56.25%;background:#0A0A0A;">
+        <iframe id="msgModalIframe" style="position:absolute;inset:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
+        <div id="msgModalPlaceholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="rgba(255,255,255,0.75)"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <p id="msgModalPlaceholderLabel" style="font-size:13px;color:rgba(255,255,255,0.7);font-weight:600;"></p>
+        </div>
+      </div>
+
+      <!-- セグメントタブ（動的に生成）-->
+      <div style="position:sticky;top:0;z-index:5;background:white;padding:14px 20px 12px;border-bottom:1px solid #EAD9C4;">
+        <div id="msgTabBar" style="display:flex;background:#F0E8E0;border-radius:12px;padding:3px;gap:0;">
+          <!-- JS で生成 -->
+        </div>
+      </div>
+
+      <!-- スワイプ可能コンテンツ（動的に生成）-->
+      <div id="msgTabOuter" style="overflow:hidden;">
+        <div id="msgTabSlider" style="display:flex;will-change:transform;transition:transform 0.28s ease-out;">
+          <!-- JS で生成 -->
+        </div>
+      </div>
+
+    </div><!-- /#msgModalScroll -->
+  </div><!-- /#msgModal -->
+
+<!-- ════════ 日別詳細（フルスクリーン）z-index:50 ════════ -->
+<div id="dayModal" class="fullscreen-page" style="z-index:50;">
+
+  <!-- ヘッダー -->
+  <div style="flex-shrink:0; display:flex; align-items:center; gap:10px; padding:13px 16px 12px; background:white; border-bottom:1.5px solid #EAD9C4;">
+    <button onclick="closeDayModal()" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" aria-label="戻る">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E0E04" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h2 id="dayModalTitle" style="flex:1;font-size:17px;font-weight:700;color:#1E0E04;min-width:0;"></h2>
+  </div>
+
+  <!-- スクロール領域 -->
+  <div id="dayModalScroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#F6EDE0;padding:16px 20px 40px;">
+    <div id="dayModalContent"></div>
+  </div>
+
+</div><!-- /#dayModal -->
+
+<!-- ════════ 検索（上からスライドダウン z-index:59）════════ -->
+<div id="searchModal">
+
+  <!-- ヘッダー：タイトル ＋ × ＋ 検索入力 ＋ カテゴリタブ -->
+  <div style="flex-shrink:0; background:white; padding:12px 16px 10px; border-bottom:1.5px solid #EAD9C4;">
+
+    <!-- タイトル行 -->
+    <div style="display:flex; align-items:center; justify-content:center; position:relative; height:44px; margin-bottom:10px;">
+      <h2 style="font-size:17px; font-weight:800; color:#1E0E04; letter-spacing:0.03em;">検索</h2>
+      <button onclick="closeSearchModal()"
+        style="position:absolute;right:-4px;top:0;width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;" aria-label="閉じる">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E0E04" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 検索入力 -->
+    <div style="position:relative; margin-bottom:10px;">
+      <div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:1;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B0A090" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </div>
+      <input id="searchInput" type="search"
+        oninput="onSearchInput(this.value)"
+        placeholder="キーワードを入力"
+        autocomplete="off" spellcheck="false"
+        style="
+          width:100%; height:46px; border:none;
+          background:#F6EDE0; border-radius:12px;
+          padding:0 14px 0 38px;
+          font-size:17px; color:#1E0E04;
+          font-family:inherit; outline:none; -webkit-appearance:none;
+        "
+      />
+    </div>
+
+    <!-- カテゴリタブ -->
+    <div style="display:flex; background:#F2EAE0; border-radius:12px; padding:3px; gap:0;">
+      <button class="search-tab active" data-cat="all"     onclick="setSearchCat('all')">すべて</button>
+      <button class="search-tab"        data-cat="report"  onclick="setSearchCat('report')">報告</button>
+      <button class="search-tab"        data-cat="prayer"  onclick="setSearchCat('prayer')">祈りの課題</button>
+      <button class="search-tab"        data-cat="message" onclick="setSearchCat('message')">メッセージ</button>
+    </div>
+
+  </div>
+
+  <!-- 結果エリア -->
+  <div id="searchScroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 20px 44px;">
+    <div id="searchHint" style="text-align:center;padding:52px 16px;color:#B0A090;">
+      <div style="font-size:40px;margin-bottom:14px;">🔍</div>
+      <p style="font-size:16px;font-weight:700;color:#1E0E04;margin-bottom:7px;">キーワードで検索</p>
+      <p style="font-size:14px;line-height:1.8;">報告・祈りの課題・メッセージを<br>まとめて横断検索できます</p>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+</div><!-- /#searchModal -->
+
+<script>
+  /* ══════════════════════════════════════════
+     GAS バックエンド URL
+     GitHub Pages への移行後、ここに GAS のデプロイ URL を貼り付ける。
+     GAS の「デプロイを管理」→「ウェブアプリ」→「URL をコピー」で取得できる。
+     例: 'https://script.google.com/macros/s/AKfycbxXXXXXXXXXXXX/exec'
+  ══════════════════════════════════════════ */
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUNaPWFD-4DnWj8TkThB-CDcoCX6FreGHl-t2KElnYO1QQKoTHpJcrpLYl38eNtWHK/exec';
+
+  /* ══════════════════════════════════════════
+     要約内のURLをリンク化するための設定
+  ══════════════════════════════════════════ */
+  // marked.js が生成する<a>タグを、新しいタブで開くようにする
+  // （アプリ内画面から離脱させないため）。bareなURLでも[文字](URL)形式でも両方に効く。
+  if (typeof marked !== 'undefined') {
+    marked.use({
+      renderer: {
+        link(href, title, text) {
+          return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+        }
+      }
+    });
+  }
+
+  // スプレッドシートの要約で、URLの直後に空白を挟まず日本語の文章や全角記号が
+  // 続くと（例：「https://example.comをご覧ください」）、marked.jsがその文字列まで
+  // URLの一部だと誤認識し、リンク先が壊れてしまう（行き先が文字化けする／全く違うURLになる）。
+  // これを防ぐため、URLとして有効な文字（半角英数字や記号）が途切れた位置の直後に
+  // 何か文字が続いていれば、そこに半角スペースを1つ差し込んでからmarked.parse()に渡す。
+  // すでに半角スペースや改行で区切られている場合は何もしない。
+  function _linkifySafe(text) {
+    if (!text) return text;
+    return text.replace(
+      /https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'*+,;=%]+/g,
+      (match, offset, str) => {
+        const next = str[offset + match.length];
+        if (next === undefined || /\s/.test(next)) return match;
+        return match + ' ';
+      }
+    );
+  }
+
+  /* ══════════════════════════════════════════
+     ダミーデータ
+  ══════════════════════════════════════════ */
+  const WEEKDAYS = ["日","月","火","水","木","金","土"];
+  const TODAY = new Date();
+  TODAY.setHours(0, 0, 0, 0);
+  const APP_YEAR = TODAY.getFullYear();
+  const SWIPE_BACK_EDGE = 24; // 画面左端からこの幅(px)以内で始めた横スワイプだけ「戻る」として扱う
+
+  /* 検索カテゴリ状態 */
+  let searchCat = 'all'; // 'all' | 'report' | 'prayer' | 'message'
+
+  // ローカルプレビュー用フォールバックデータの日付を組み立てるヘルパー。
+  // "M/d" を受け取り、実行時点の年を補って "yyyy/M/d" 形式の文字列にする（GAS実行時は使われない）。
+  function _demoDate(mSlashD, yearOffset) {
+    const [m, d] = mSlashD.split('/').map(Number);
+    return `${APP_YEAR + (yearOffset || 0)}/${m}/${d}`;
+  }
+
+  // 「タグ」シートから取得した各プルダウンの選択肢・名前グループ対応表。
+  // ※ ローカルプレビュー（GAS外）では null のままになり、各画面の初期化処理が
+  //    データからの自動抽出にフォールバックする。
+  let TAGS = null;
+
+  // 予定（過去＋今後。過去分は「記録を見る」カードのイベント名表示にも使う）
+  // タグ：日曜日／水曜日／特別集会 など（実データは「予定」シートのタグ欄）
+  // ※ ここに書かれているのは GAS 環境外でのローカルプレビュー用フォールバックデータ。
+  //    GAS上で実行された場合は getAppData() の結果で必ず上書きされる（後方の初期化フロー参照）。
+  let DUMMY_SCHEDULE = [
+    // ── 過去の予定 ──
+    { 日付:_demoDate("6/14"), 時間:"10:30", 内容:"主日礼拝",     タグ:"日曜日",   イベント:"",           語り手:"田中兄" },
+    { 日付:_demoDate("6/7"),  時間:"10:00", 内容:"オリーブカフェ", タグ:"特別集会", イベント:"オリーブカフェ", 語り手:""      },
+    { 日付:_demoDate("5/31"), 時間:"10:30", 内容:"主日礼拝",     タグ:"日曜日",   イベント:"",           語り手:"田中兄" },
+    { 日付:_demoDate("5/24"), 時間:"14:00", 内容:"歌の集い",     タグ:"特別集会", イベント:"歌の集い",     語り手:""        },
+    { 日付:_demoDate("5/17"), 時間:"10:30", 内容:"伝道集会",     タグ:"特別集会", イベント:"",           語り手:"青木兄・上村兄" },
+    { 日付:_demoDate("4/26"), 時間:"10:30", 内容:"特伝集会",     タグ:"特別集会", イベント:"特伝集会",     語り手:"田中兄" },
+    // ── 今後の予定（今日 6/19 以降）──
+    { 日付:_demoDate("6/21"), 時間:"10:30", 内容:"主日礼拝",     タグ:"日曜日",   イベント:"",           語り手:"田中兄" },
+    { 日付:_demoDate("6/21"), 時間:"14:00", 内容:"午後祈祷会",   タグ:"日曜日",   イベント:"",           語り手:""        },
+    { 日付:_demoDate("6/23"), 時間:"10:00", 内容:"オリーブカフェ", タグ:"特別集会", イベント:"オリーブカフェ", 語り手:""      },
+    { 日付:_demoDate("6/24"), 時間:"19:00", 内容:"聖書研究会",   タグ:"水曜日",   イベント:"聖書研究会",   語り手:"青木兄・上村兄" },
+    { 日付:_demoDate("6/28"), 時間:"10:30", 内容:"主日礼拝",     タグ:"日曜日",   イベント:"",           語り手:"田中兄" },
+    { 日付:_demoDate("6/28"), 時間:"12:00", 内容:"月例聖餐式",   タグ:"日曜日",   イベント:"",           語り手:""        },
+    { 日付:_demoDate("7/1"),  時間:"14:00", 内容:"歌の集い",     タグ:"特別集会", イベント:"歌の集い",     語り手:""        },
+    { 日付:_demoDate("7/5"),  時間:"10:30", 内容:"主日礼拝",     タグ:"日曜日",   イベント:"",           語り手:"田中兄" },
+  ];
+
+  // 「記録を見る」カードは、報告・祈りの課題・メッセージの3データから
+  // 日付ごとに件数を集計して動的に組み立てる（DUMMY_REPORT等は後方で定義）
+
+  /* ── 日付ユーティリティ（日付は常に "yyyy/M/d" 形式の文字列として扱う） ── */
+  // "yyyy/M/d" → Dateオブジェクト（文字列に含まれる実際の年を使う。形式が不正ならnull）
+  function toDateObj(str) {
+    if (!str) return null;
+    const parts = String(str).split('/').map(Number);
+    if (parts.length < 3 || parts.some(isNaN)) return null;
+    const [y, m, d] = parts;
+    return new Date(y, m - 1, d);
+  }
+  // "yyyy/M/d" → 曜日
+  function getWD(str) {
+    const d = toDateObj(str);
+    return d ? WEEKDAYS[d.getDay()] : '';
+  }
+  // "yyyy/M/d" → 正規化キー（先頭ゼロ等の表記ゆれを吸収。年を保持するので異なる年の同月日を混同しない）
+  // 報告・祈りの課題・メッセージ・予定の同じ日付を横断して突き合わせるためのキーとして使う
+  function dateKey(str) {
+    const d = toDateObj(str);
+    return d ? `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}` : '';
+  }
+  // "yyyy/M/d" → 月ラベル。今年は "yyyy年M月"、去年以前は "yyyy年" のみ
+  function monthYearLabel(str) {
+    const d = toDateObj(str);
+    if (!d) return '';
+    const year = d.getFullYear();
+    const curYear = new Date().getFullYear();
+    return (year >= curYear)
+      ? `${year}年${d.getMonth() + 1}月`
+      : `${year}年`;
+  }
+  function wdStyle(wd) {
+    if (wd === "日") return { color:"#C84848", bg:"#FEE8E8" };
+    if (wd === "土") return { color:"#2868B8", bg:"#E8EEFE" };
+    return { color:"#8A7060", bg:"transparent" };
+  }
+
+  /* ══════════════════════════════════════════
+     直近の予定 グリッド組み立て
+  ══════════════════════════════════════════ */
+  function buildHomeSchedule() {
+    // 表示対象は「今日以降」のみ（過去の予定は記録カードのイベント名表示にのみ使用）
+    const upcoming = DUMMY_SCHEDULE.filter(e => {
+      const d = toDateObj(e.日付);
+      return d && d >= TODAY;
+    });
+
+    // 日付でグルーピング（昇順 = 直近の予定が先頭）
+    const dates = [...new Set(upcoming.map(e => e.日付))]
+      .sort((a, b) => toDateObj(a) - toDateObj(b));
+    const groups = {};
+    upcoming.forEach(e => {
+      if (!groups[e.日付]) groups[e.日付] = [];
+      groups[e.日付].push(e);
+    });
+
+    // 語り手列は auto（コンテンツ幅に自動伸縮）
+    // 内容列は minmax(max-content,1fr) で最低限の幅を保証
+    // → カード幅を超えた場合にカードが横スクロールする
+    let html = `<div style="display:grid; grid-template-columns:62px 54px minmax(max-content,1fr) auto;">`;
+
+    dates.forEach((date, gi) => {
+      const events  = groups[date];
+      const count   = events.length;
+      const wd      = getWD(date);
+      const ws      = wdStyle(wd);
+      const [, m, d]  = date.split("/");
+      const isFirst = (gi === 0);
+      const groupBt = isFirst ? "none" : "2px solid #EAD8C4";
+      const dateBg  = gi % 2 === 0 ? "#FFFCF8" : "#FFF6EE";
+
+      /* ── 日付セル（複数行スパン） ── */
+      html += `
+        <div style="
+          grid-row: span ${count};
+          background:${dateBg};
+          border-top:${groupBt};
+          border-right:1.5px solid #EAD8C4;
+          display:flex; flex-direction:column;
+          align-items:center; justify-content:center;
+          padding:16px 4px; gap:3px;
+        ">
+          <span style="font-size:10px; color:#C8781E; font-weight:700; letter-spacing:0.06em;">${m}月</span>
+          <span style="font-size:26px; font-weight:900; color:#1E0E04; line-height:1.05;">${d}</span>
+          <span style="
+            font-size:11px; font-weight:700;
+            color:${ws.color}; background:${ws.bg};
+            padding:2px 6px; border-radius:5px; margin-top:1px;
+          ">${wd}</span>
+        </div>`;
+
+      /* ── イベント行（時間／内容／語り手） ── */
+      events.forEach((ev, ei) => {
+        const rowBt = ei === 0
+          ? (isFirst ? "none" : groupBt)
+          : "1px solid #F2E8DC";
+
+        html += `
+          <div style="border-top:${rowBt}; padding:14px 4px 14px 8px; display:flex; align-items:center; background:white;">
+            <span style="font-size:13px; font-weight:700; color:#9A6A40; white-space:nowrap; font-variant-numeric:tabular-nums;">${ev.時間}</span>
+          </div>
+          <div style="border-top:${rowBt}; padding:14px 6px; display:flex; align-items:center; background:white;">
+            <span style="font-size:15px; font-weight:600; color:#1E0E04; line-height:1.35;">${ev.内容}</span>
+          </div>
+          <div style="border-top:${rowBt}; padding:14px 12px 14px 4px; display:flex; align-items:center; justify-content:flex-end; background:white;">
+            <span style="font-size:13px; color:#B09070; white-space:nowrap;">${ev.語り手}</span>
+          </div>`;
+      });
+    });
+
+    html += `</div>`;
+    return html;
+  }
+
+  /* ── 月見出し共通パーツ ── */
+  function _monthDiv(label, isFirst) {
+    const pt = isFirst ? '2px' : '18px';
+    return `<div data-month="${label}" style="display:flex;align-items:center;gap:10px;padding:${pt} 0 8px;">
+      <div style="flex:1;height:1px;background:#DEC8B0;"></div>
+      <span style="font-size:11px;font-weight:700;color:#9A8070;white-space:nowrap;letter-spacing:0.08em;padding:0 4px;">${label}</span>
+      <div style="flex:1;height:1px;background:#DEC8B0;"></div>
+    </div>`;
+  }
+
+  /* ══════════════════════════════════════════
+     記録を見る カード組み立て
+  ══════════════════════════════════════════ */
+  let rFilterTag = '';
+
+  function buildHomeRecords() {
+    // 3種のデータから日付を集め、重複を除いて「今日以前」だけを抽出（日付降順）
+    const dateSet = new Set();
+    DUMMY_REPORT.forEach(r => dateSet.add(dateKey(r.日付)));
+    DUMMY_PRAYER.forEach(p => dateSet.add(dateKey(p.日付)));
+    DUMMY_MESSAGE.forEach(msg => dateSet.add(dateKey(msg.日付)));
+
+    const dates = [...dateSet]
+      .filter(dk => {
+        const d = toDateObj(dk);
+        return d && d <= TODAY;
+      })
+      .filter(dk => {
+        if (!rFilterTag) return true;
+        // 予定（DUMMY_SCHEDULE）のうち、その日付にタグが一致するものがあるかで絞り込む
+        return DUMMY_SCHEDULE.some(e => dateKey(e.日付) === dk && e.タグ === rFilterTag);
+      })
+      .sort((a, b) => toDateObj(b) - toDateObj(a));
+
+    if (!dates.length) {
+      return `<div style="text-align:center;padding:40px 16px;color:#B0A090;">
+        <p style="font-size:15px;">該当する記録がありません</p>
+      </div>`;
+    }
+
+    let html = "";
+    let lastMonth = '';
+
+    dates.forEach((date, idx) => {
+      const wd   = getWD(date);
+      const ws   = wdStyle(wd);
+      const [, m, d] = date.split("/");
+
+      // 月見出し
+      const monthKey = monthYearLabel(date);
+      if (monthKey !== lastMonth) {
+        lastMonth = monthKey;
+        html += _monthDiv(monthKey, idx === 0);
+      }
+
+      // その日付に一致する件数を集計
+      const repCount = DUMMY_REPORT.filter(r => dateKey(r.日付) === date).length;
+      const pryCount = DUMMY_PRAYER.filter(p => dateKey(p.日付) === date).length;
+      const msgItems = DUMMY_MESSAGE.filter(msg => dateKey(msg.日付) === date);
+      const speakers = [...new Set(msgItems.flatMap(msg => msg.語り手.split('・')).filter(Boolean))].join('・');
+
+      // 予定（DUMMY_SCHEDULE）からその日の「イベント」名を引用。無ければ「記録」とする
+      // （同日に複数の予定行がある場合、いずれかにイベント名が入っていればそれを使う）
+      const scheduleItemsForDay = DUMMY_SCHEDULE.filter(e => dateKey(e.日付) === date);
+      const eventName = scheduleItemsForDay.map(e => e.イベント).find(v => v);
+      const dayLabel = eventName ? `${eventName}の記録` : '記録';
+
+      const chips = [
+        repCount > 0 ? `<span style="background:#E4F4F8;color:#0882A8;font-size:13px;font-weight:700;padding:4px 10px;border-radius:20px;">報告 ${repCount}</span>` : "",
+        pryCount > 0 ? `<span style="background:#EAF4E8;color:#508050;font-size:13px;font-weight:700;padding:4px 10px;border-radius:20px;">祈り ${pryCount}</span>` : "",
+        speakers ? speakerChip(speakers) : "",
+      ].filter(Boolean).join("");
+
+      html += `
+        <button
+          onclick="openDayModal('${date}')"
+          style="
+            width:100%; border:none; cursor:pointer; text-align:left;
+            display:flex; align-items:center;
+            background:white; border-radius:20px; padding:17px 18px;
+            margin-bottom:10px;
+            box-shadow:0 3px 18px rgba(44,22,4,0.08);
+          ">
+          <!-- 日付 -->
+          <div style="flex-shrink:0; display:flex; flex-direction:column; align-items:center; width:54px;">
+            <span style="font-size:10px; color:#C8781E; font-weight:700; letter-spacing:0.06em;">${m}月</span>
+            <span style="font-size:30px; font-weight:900; color:#1E0E04; line-height:1.05;">${d}</span>
+            <span style="
+              font-size:11px; font-weight:700;
+              color:${ws.color}; background:${ws.bg};
+              padding:2px 6px; border-radius:5px; margin-top:2px;
+            ">${wd}</span>
+          </div>
+          <!-- 区切り線 -->
+          <div style="width:1.5px; height:54px; background:#EAD8C4; margin:0 16px; flex-shrink:0;"></div>
+          <!-- サマリー -->
+          <div style="flex:1; min-width:0;">
+            <p style="font-size:11px; color:#B8A898; font-weight:600; letter-spacing:0.05em; margin-bottom:7px;">${dayLabel}</p>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">${chips}</div>
+          </div>
+          <!-- 矢印 -->
+          <svg style="flex-shrink:0; margin-left:8px;" width="20" height="20" viewBox="0 0 24 24"
+               fill="none" stroke="#C8B8A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>`;
+    });
+
+    return html;
+  }
+
+  /* ══════════════════════════════════════════
+     日別詳細モーダル
+  ══════════════════════════════════════════ */
+  function openDayModal(date) {
+    const key = dateKey(date);
+    const wd  = getWD(date);
+    const [y, m, d] = date.split('/');
+
+    // タイトル（複数年のデータが混在しうるため年も表示する）
+    document.getElementById('dayModalTitle').textContent = `${y}年${m}月${d}日（${wd}）の記録`;
+
+    // 該当データを抽出
+    const reports  = DUMMY_REPORT.filter(r   => dateKey(r.日付)   === key);
+    const prayers  = DUMMY_PRAYER.filter(p   => dateKey(p.日付)   === key);
+    const messages = DUMMY_MESSAGE.filter(msg => dateKey(msg.日付) === key);
+
+    let html = '';
+
+    /* ── 報告セクション ── */
+    if (reports.length) {
+      html += _daySection('報告', '#0882A8', reports.length);
+      reports.forEach(r => {
+        const ts = getTagStyle(r.タグ);
+        html += `
+          <div style="background:white;border-radius:16px;padding:15px 16px;margin-bottom:8px;box-shadow:0 2px 12px rgba(44,22,4,0.08);">
+            <span style="display:inline-block;margin-bottom:8px;background:${ts.bg};color:${ts.color};border:${ts.border};font-size:12px;font-weight:700;padding:3px 12px;border-radius:20px;">${r.タグ}</span>
+            ${_reportTextHtml(r.内容)}
+          </div>`;
+      });
+    }
+
+    /* ── 祈りの課題セクション ── */
+    if (prayers.length) {
+      html += _daySection('祈りの課題', '#508050', prayers.length);
+      prayers.forEach(p => {
+        const st = statusStyle(p.ステータス);
+        html += `
+          <div style="background:white;border-radius:16px;padding:15px 16px;margin-bottom:8px;box-shadow:0 2px 12px rgba(44,22,4,0.08);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+              <span style="font-size:17px;font-weight:700;color:#1E0E04;">${p.名前}</span>
+              <span style="flex-shrink:0;font-size:12px;font-weight:700;background:${st.bg};color:${st.color};border:1px solid ${st.bd};padding:3px 13px;border-radius:20px;">${p.ステータス}</span>
+            </div>
+            ${_prayerTextHtml(p.課題)}
+          </div>`;
+      });
+    }
+
+    /* ── メッセージセクション ── */
+    if (messages.length) {
+      html += _daySection('メッセージ', '#6858B8', messages.length);
+      messages.forEach(msg => {
+        const wdM = getWD(msg.日付);
+        const [, mm, dd] = msg.日付.split('/');
+        const on   = getFavIds().includes(msg.id);
+        const chips = [
+          msg.分類 ? msgChip(msg.分類) : '',
+          msg.書簡 ? `<span style="display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#EEE0D4;color:#4A3020;">${msg.書簡}</span>` : '',
+        ].filter(Boolean).join('');
+
+        html += `
+          <div onclick="openMessageModal('${msg.id}')"
+            style="background:white;border-radius:16px;margin-bottom:8px;overflow:hidden;cursor:pointer;box-shadow:0 2px 12px rgba(44,22,4,0.08);display:flex;align-items:stretch;">
+            <div style="width:70px;flex-shrink:0;background:${thumbGrad(msg.分類)};display:flex;align-items:center;justify-content:center;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <div style="flex:1;padding:12px 12px 11px 13px;min-width:0;">
+              <p style="font-size:16px;font-weight:700;color:#1E0E04;line-height:1.35;margin-bottom:5px;">${msg.タイトル}</p>
+              <p style="font-size:13px;color:#9A8070;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${msg.語り手}　${mm}/${dd}（${wdM}）</p>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;">${chips}</div>
+            </div>
+            <div style="display:flex;align-items:center;padding-right:12px;flex-shrink:0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C8B8A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>`;
+      });
+    }
+
+    /* 何もない場合 */
+    if (!reports.length && !prayers.length && !messages.length) {
+      html = `<div style="text-align:center;padding:52px 16px;color:#B0A090;">
+        <div style="font-size:40px;margin-bottom:14px;">📭</div>
+        <p style="font-size:16px;font-weight:600;color:#1E0E04;margin-bottom:6px;">記録がありません</p>
+        <p style="font-size:14px;line-height:1.75;">この日の報告・祈り・メッセージは<br>登録されていません</p>
+      </div>`;
+    }
+
+    document.getElementById('dayModalContent').innerHTML = html;
+    initDayModalToggles();
+    document.getElementById('dayModalScroll').scrollTop = 0;
+    document.getElementById('dayModal').classList.add('open');
+  }
+
+  function closeDayModal() {
+    document.getElementById('dayModal').classList.remove('open');
+  }
+
+  /* セクションヘッダー共通パーツ */
+  function _daySection(label, color, count) {
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;">
+        <div style="width:4px;height:20px;background:${color};border-radius:2px;flex-shrink:0;"></div>
+        <h3 style="font-size:16px;font-weight:800;color:#1E0E04;">${label}</h3>
+        <span style="font-size:13px;color:#B0A090;font-weight:600;">${count}件</span>
+      </div>`;
+  }
+
+  /* ══════════════════════════════════════════
+     タブ切り替え
+  ══════════════════════════════════════════ */
+  const tabs        = document.querySelectorAll('.nav-btn');
+  const screens     = document.querySelectorAll('.screen');
+  const screenTitle = document.getElementById('screenTitle');
+  const content     = document.getElementById('content');
+
+  function activateTab(tab) {
+    const id    = tab.dataset.tab;
+    const title = tab.dataset.title;
+
+    // Deactivate all
+    tabs.forEach(t => t.classList.remove('active'));
+    screens.forEach(s => s.classList.remove('active'));
+
+    // Activate selected
+    tab.classList.add('active');
+    const target = document.getElementById('screen-' + id);
+    if (target) target.classList.add('active');
+
+    // Update header
+    screenTitle.textContent = title;
+
+    // Scroll to top
+    content.scrollTop = 0;
+
+    // いいねタブは毎回再描画（rAF に後回しにしてアニメーションを妨げない）
+    if (id === 'favorite') {
+      requestAnimationFrame(() => {
+        renderFavoriteList();
+        window.updateScrollbar?.();
+      });
+    } else if (id === 'report') {
+      // 報告タブ：表示後に折りたたみボタン表示判定（display:none の間は scrollHeight=0 になるため）
+      requestAnimationFrame(() => {
+        initReportToggles();
+        window.updateScrollbar?.();
+      });
+    } else {
+      // スクロールバー更新
+      requestAnimationFrame(() => window.updateScrollbar?.());
+    }
+  }
+
+  tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab)));
+  // ホーム画面・記録画面など各画面の組み立ては、データ取得後に呼ばれる buildAllScreens() で行う
+  // （スクリプト末尾の「データ取得・初期化フロー」を参照）
+
+  /* ══════════════════════════════════════════
+     報告ダミーデータ
+  ══════════════════════════════════════════ */
+  // ※ ローカルプレビュー用フォールバックデータ（GAS上では getAppData() の結果で上書きされる）
+  let DUMMY_REPORT = [
+    { 日付:_demoDate("6/15"), タグ:"お知らせ", 内容:"次の主日（6/21）は聖餐式があります。10:30よりお集まりください。", 掲載期限:_demoDate("6/21") },
+    { 日付:_demoDate("6/14"), タグ:"報告",    内容:"青年会の集まりが無事に終わりました。ご参加いただいた皆さん、ありがとうございました。", 掲載期限:"" },
+    { 日付:_demoDate("6/14"), タグ:"感謝",    内容:"山田姉妹の手術が無事に終了し、順調に回復されています。感謝します。", 掲載期限:"" },
+    { 日付:_demoDate("6/7"),  タグ:"報告",    内容:"オリーブカフェの第1回が開かれました。15名が参加し、にぎやかな交わりの時となりました。", 掲載期限:"" },
+    { 日付:_demoDate("5/31"), タグ:"お知らせ", 内容:"6月の集会予定表を配布しました。ご確認ください。", 掲載期限:"" },
+    { 日付:_demoDate("5/31"), タグ:"報告",    内容:"田中兄の転居が無事に完了しました。", 掲載期限:"" },
+    { 日付:_demoDate("5/24"), タグ:"報告",    内容:"歌の集いが初めて開催されました。来月も継続します。", 掲載期限:"" },
+  ];
+
+  /* ── タグ色 ── */
+  function getTagStyle(tag) {
+    if (tag === 'お知らせ') return { bg:'#C8330E', color:'#FFFFFF', border:'none' };
+    if (tag === '感謝')     return { bg:'#C8EDBE', color:'#1A5A1A', border:'none' };
+    if (tag === '報告')     return { bg:'#C8E4F4', color:'#0A3A5A', border:'none' };
+    return { bg:'#EEE0D4', color:'#4A3020', border:'none' };
+  }
+
+  /* ══════════════════════════════════════════
+     報告画面 組み立て
+  ══════════════════════════════════════════ */
+  /* ── 報告本文：3行超は折りたたみ表示 ── */
+  let _reportSeq = 0;
+  function _reportTextHtml(content) {
+    const id = 'rpt' + (_reportSeq++);
+    const innerHtml = (typeof marked !== 'undefined')
+      ? marked.parse(_linkifySafe(content || ''))
+      : (content || '').replace(/\n/g, '<br>');
+    return `
+      <div class="report-text md-body" id="rtext-${id}">${innerHtml}</div>
+      <button class="report-toggle" id="rtoggle-${id}" onclick="toggleReportText('${id}')">
+        <span class="report-toggle-label">続きを読む</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>`;
+  }
+  function toggleReportText(id) {
+    const p   = document.getElementById('rtext-' + id);
+    const btn = document.getElementById('rtoggle-' + id);
+    if (!p || !btn) return;
+    const expanded = !p.classList.contains('expanded');
+    p.classList.toggle('expanded', expanded);
+    btn.classList.toggle('expanded', expanded);
+    btn.querySelector('.report-toggle-label').textContent = expanded ? '閉じる' : '続きを読む';
+  }
+  function initReportToggles() {
+    document.querySelectorAll('#report-list .report-text').forEach(p => {
+      const id  = p.id.replace('rtext-', '');
+      const btn = document.getElementById('rtoggle-' + id);
+      if (!btn) return;
+      // 3行に収まらず、はみ出している場合だけ「続きを読む」を表示
+      if (p.scrollHeight > p.clientHeight + 2) {
+        btn.style.display = 'flex';
+      }
+    });
+  }
+
+  /* ── 祈りの課題本文：3行超は折りたたみ（プレーンテキスト版） ── */
+  function _prayerTextHtml(content) {
+    const id = 'pry' + (_reportSeq++);
+    const escaped = (content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `
+      <div class="report-text" id="rtext-${id}" style="font-size:16px;color:#2C1A0E;line-height:1.8;white-space:pre-line;">${escaped}</div>
+      <button class="report-toggle" id="rtoggle-${id}" onclick="toggleReportText('${id}')">
+        <span class="report-toggle-label">続きを読む</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>`;
+  }
+
+  /* ── 日々の記録モーダル内の折りたたみボタン表示判定 ── */
+  function initDayModalToggles() {
+    document.querySelectorAll('#dayModalContent .report-text').forEach(p => {
+      const id  = p.id.replace('rtext-', '');
+      const btn = document.getElementById('rtoggle-' + id);
+      if (!btn) return;
+      if (p.scrollHeight > p.clientHeight + 2) {
+        btn.style.display = 'flex';
+      }
+    });
+  }
+
+  function buildReportScreen() {
+    // TODAY はスクリプト先頭で定義したグローバル定数を使用
+    _reportSeq = 0;
+
+    /* ピン留め判定 */
+    const pinned  = DUMMY_REPORT.filter(r => {
+      if (!r.掲載期限) return false;
+      const [y, m, d] = r.掲載期限.split('/').map(Number);
+      return new Date(y, m - 1, d) >= TODAY;
+    });
+    const regular = DUMMY_REPORT.filter(r => !pinned.includes(r));
+
+    /* 日付降順グルーピング */
+    const dates = [...new Set(regular.map(r => r.日付))].sort((a, b) => toDateObj(b) - toDateObj(a));
+    const groups = {};
+    regular.forEach(r => {
+      if (!groups[r.日付]) groups[r.日付] = [];
+      groups[r.日付].push(r);
+    });
+
+    let html = '';
+
+    /* ── ピン留めカード ── */
+    pinned.forEach(item => {
+      const ts = getTagStyle(item.タグ);
+      const [, pm, pd] = item.日付.split('/');
+      html += `
+        <div style="
+          border:2px solid #C8781E; border-radius:18px;
+          padding:16px 18px; margin-bottom:18px;
+          background:#FFFCF8;
+          box-shadow:0 2px 16px rgba(200,120,30,0.14);
+        ">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+            <span style="font-size:15px; color:#C8781E;">★</span>
+            <span style="font-size:11px; font-weight:700; color:#C8781E; letter-spacing:0.07em;">ピン留め</span>
+            <span style="background:${ts.bg};color:${ts.color};border:${ts.border};font-size:12px;font-weight:700;padding:3px 12px;border-radius:20px;">${item.タグ}</span>
+          </div>
+          ${_reportTextHtml(item.内容)}
+          <p style="font-size:12px;color:#B0A090;text-align:right;margin-top:8px;">${pm}月${pd}日</p>
+        </div>`;
+    });
+
+    /* ── 通常リスト（日付グループ＋横線区切り）── */
+    let lastMonth = '';
+    dates.forEach((date, di) => {
+      const entries = groups[date];
+      const [, m, d]  = date.split('/');
+      const wd      = getWD(date);
+
+      // スクロールバーの月バブル用の目印（見た目には影響しない高さ0の要素）
+      let monthAnchor = '';
+      const monthKey = monthYearLabel(date);
+      if (monthKey !== lastMonth) {
+        lastMonth = monthKey;
+        monthAnchor = `<div data-month="${monthKey}" style="height:0;overflow:hidden;"></div>`;
+      }
+
+      if (di > 0) {
+        html += `<div style="height:1px;background:#EAD8C4;"></div>`;
+      }
+
+      html += monthAnchor + `
+        <div style="display:flex;gap:16px;padding:18px 0;align-items:flex-start;">
+
+          <!-- 日付：枠なし、テキストのみ -->
+          <div style="
+            flex-shrink:0; width:46px;
+            display:flex;flex-direction:column;
+            align-items:center; padding-top:4px; gap:0;
+          ">
+            <span style="font-size:10px;color:#9A8070;font-weight:600;letter-spacing:0.04em;">${m}月</span>
+            <span style="font-size:32px;font-weight:900;color:#0A3D52;line-height:1.05;">${d}</span>
+            <span style="font-size:12px;font-weight:700;margin-top:2px;
+              ${wd === '日' ? 'color:#C02020;' : wd === '土' ? 'color:#2040B0;' : 'color:#9A8070;'}
+            ">${wd}</span>
+          </div>
+
+          <!-- エントリ -->
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+            ${entries.map((entry, ei) => {
+              const ts  = getTagStyle(entry.タグ);
+              const sep = ei > 0 ? `<div style="border-top:1px solid #F0E8DC;margin:13px 0;"></div>` : '';
+              return `${sep}
+                <div>
+                  <span style="display:inline-block;margin-bottom:8px;background:${ts.bg};color:${ts.color};border:${ts.border};font-size:12px;font-weight:700;padding:3px 12px;border-radius:20px;">${entry.タグ}</span>
+                  ${_reportTextHtml(entry.内容)}
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    });
+
+    const el = document.getElementById('report-list');
+    if (el) {
+      el.innerHTML = html;
+      requestAnimationFrame(initReportToggles);
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     祈りの課題ダミーデータ
+  ══════════════════════════════════════════ */
+  // ※ ローカルプレビュー用フォールバックデータ（GAS上では getAppData() の結果で上書きされる）
+  let DUMMY_PRAYER = [
+    { 日付:_demoDate("6/14"), 名前:"山田恵子", 課題:"手術後の順調な回復のため",             ステータス:"感謝"   },
+    { 日付:_demoDate("6/14"), 名前:"上村一郎", 課題:"新しい職場での責任のため、知恵と力を", ステータス:"祈祷中" },
+    { 日付:_demoDate("6/7"),  名前:"田中正義", 課題:"転居先での新しい生活に慣れるよう",     ステータス:"継続"   },
+    { 日付:_demoDate("6/7"),  名前:"青木花子", 課題:"体調不良が続いています。回復のため",   ステータス:"祈祷中" },
+    { 日付:_demoDate("5/31"), 名前:"山田恵子", 課題:"大きな手術を前にして、平安のため",     ステータス:"報告"   },
+    { 日付:_demoDate("5/31"), 名前:"上村一郎", 課題:"仕事の方向性について知恵を求めて",     ステータス:"継続"   },
+    { 日付:_demoDate("5/24"), 名前:"木村義雄", 課題:"未信者の友人への証の機会のため",       ステータス:"祈祷中" },
+    { 日付:_demoDate("5/24"), 名前:"田中正義", 課題:"引越しの準備が滞りなく進むように",     ステータス:"報告"   },
+  ];
+
+  function statusStyle(st) {
+    if (st === '感謝')   return { bg:'#C8EDBE', color:'#1A5A1A', bd:'transparent' };
+    if (st === '祈祷中') return { bg:'#C8D8FA', color:'#1A2870', bd:'transparent' };
+    if (st === '継続')   return { bg:'#FEE8C8', color:'#6A3000', bd:'transparent' };
+    if (st === '報告')   return { bg:'#EEE0D4', color:'#4A3020', bd:'transparent' };
+    return { bg:'#E8E4E0', color:'#404040', bd:'transparent' };
+  }
+
+  /* ══════════════════════════════════════════
+     カスタムドロップダウン基盤
+  ══════════════════════════════════════════ */
+  const ddReg = {};
+
+  function openDD(key) {
+    Object.keys(ddReg).forEach(k => { if (k !== key) closeDD(k); });
+    const r = ddReg[key];
+    r.menu.style.display = 'block';
+    r.chevron.style.transform = 'rotate(180deg)';
+  }
+  function closeDD(key) {
+    const r = ddReg[key]; if (!r) return;
+    r.menu.style.display = 'none';
+    r.chevron.style.transform = 'rotate(0deg)';
+  }
+  document.addEventListener('click', () => Object.keys(ddReg).forEach(k => closeDD(k)));
+
+  function setupDD(key, options, defaultLabel, onChangeCb) {
+    const btn     = document.getElementById(key + 'Btn');
+    const label   = document.getElementById(key + 'Label');
+    const chevron = document.getElementById(key + 'Chevron');
+    const menu    = document.getElementById(key + 'Menu');
+    if (!btn) return;
+
+    ddReg[key] = { btn, label, chevron, menu };
+
+    function renderMenu(current) {
+      menu.innerHTML = ['すべて', ...options].map(opt => {
+        const sel = opt === 'すべて' ? !current : opt === current;
+        return `<li data-value="${opt}" style="
+          padding:14px 18px; cursor:pointer; font-size:16px; list-style:none;
+          font-weight:${sel ? '700' : '500'};
+          color:${sel ? '#1E0E04' : '#7A5A38'};
+          background:${sel ? '#F4EDE4' : 'white'};
+          border-bottom:1px solid #F2E8DC;
+          display:flex; align-items:center; justify-content:space-between;
+        ">${opt}<span style="color:#508050;font-size:13px;">${sel ? '✓' : ''}</span></li>`;
+      }).join('');
+
+      label.textContent = current || defaultLabel;
+      label.style.color = 'white';
+      label.style.fontWeight = current ? '700' : '600';
+      label.style.opacity    = current ? '1'   : '0.82';
+
+      menu.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', e => {
+          e.stopPropagation();
+          const val = li.dataset.value === 'すべて' ? '' : li.dataset.value;
+          closeDD(key);
+          renderMenu(val);
+          onChangeCb(val);
+        });
+      });
+    }
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      menu.style.display !== 'none' ? closeDD(key) : openDD(key);
+    });
+
+    renderMenu('');
+  }
+
+  /* ══════════════════════════════════════════
+     祈りの課題 リスト描画
+  ══════════════════════════════════════════ */
+  let pFilterName = '', pFilterStatus = '';
+
+  // 「名前」が、指定した「名前-タグ」グループに属するか判定する。
+  // 例：「上村b」「上村s」「上村bs」は全て「上村bs」というグループにまとめられている。
+  // TAGS（タグシートのデータ）が無い場合（ローカルプレビュー等）は、
+  // 名前そのものでの完全一致にフォールバックする。
+  function nameMatchesGroup(name, group) {
+    if (!group) return true;
+    if (TAGS && TAGS.nameToGroup) {
+      return (TAGS.nameToGroup[name] || name) === group;
+    }
+    return name === group;
+  }
+
+  function buildPrayerList() {
+    const filtered = DUMMY_PRAYER.filter(p =>
+      (!pFilterName   || nameMatchesGroup(p.名前, pFilterName)) &&
+      (!pFilterStatus || p.ステータス === pFilterStatus)
+    ).sort((a, b) => toDateObj(b.日付) - toDateObj(a.日付));
+
+    const el = document.getElementById('prayer-list');
+    if (!el) return;
+
+    if (!filtered.length) {
+      el.innerHTML = `<div style="text-align:center;padding:52px 0;color:#B0A090;">
+        <div style="font-size:38px;margin-bottom:12px;">🙏</div>
+        <p style="font-size:16px;">該当する課題がありません</p>
+      </div>`;
+      return;
+    }
+
+    /* 日付でグルーピング（報告ページと同じ構造） */
+    // filtered はすでに降順ソート済み → Set は挿入順を保持するので順序そのまま
+    const dates = [...new Set(filtered.map(p => p.日付))];
+    const groups = {};
+    filtered.forEach(p => {
+      if (!groups[p.日付]) groups[p.日付] = [];
+      groups[p.日付].push(p);
+    });
+
+    let html = '';
+    let lastMonth = '';
+    dates.forEach((date, di) => {
+      const entries = groups[date];
+      const [, m, d] = date.split('/');
+      const wd = getWD(date);
+
+      // スクロールバーの月バブル用の目印
+      const monthKey = monthYearLabel(date);
+      let monthAnchor = '';
+      if (monthKey !== lastMonth) {
+        lastMonth = monthKey;
+        monthAnchor = `<div data-month="${monthKey}" style="height:0;overflow:hidden;"></div>`;
+      }
+
+      if (di > 0) {
+        html += `<div style="height:1px;background:#EAD8C4;"></div>`;
+      }
+
+      html += monthAnchor + `
+        <div style="display:flex;gap:16px;padding:18px 0;align-items:flex-start;">
+
+          <!-- 日付：枠なし、テキストのみ -->
+          <div style="
+            flex-shrink:0; width:46px;
+            display:flex;flex-direction:column;
+            align-items:center; padding-top:4px; gap:0;
+          ">
+            <span style="font-size:10px;color:#9A8070;font-weight:600;letter-spacing:0.04em;">${m}月</span>
+            <span style="font-size:32px;font-weight:900;color:#2A5A2A;line-height:1.05;">${d}</span>
+            <span style="font-size:12px;font-weight:700;margin-top:2px;
+              ${wd === '日' ? 'color:#C02020;' : wd === '土' ? 'color:#2040B0;' : 'color:#9A8070;'}
+            ">${wd}</span>
+          </div>
+
+          <!-- エントリ -->
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+            ${entries.map((item, ei) => {
+              const st = statusStyle(item.ステータス);
+              const sep = ei > 0 ? `<div style="border-top:1px solid #F0E8DC;margin:13px 0;"></div>` : '';
+              return `${sep}
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+                    <span style="font-size:20px;font-weight:800;color:#1E0E04;flex:1;min-width:0;">${item.名前}</span>
+                    <span style="
+                      flex-shrink:0;font-size:12px;font-weight:700;
+                      background:${st.bg};color:${st.color};
+                      border:1px solid ${st.bd};
+                      padding:3px 12px;border-radius:20px;
+                    ">${item.ステータス}</span>
+                  </div>
+                  <p style="font-size:16px;color:#2C1A0E;line-height:1.8;white-space:pre-line;">${item.課題}</p>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    });
+
+    el.innerHTML = html;
+    requestAnimationFrame(() => window.updateScrollbar?.());
+  }
+
+  /* ══════════════════════════════════════════
+     祈りの課題 ドロップダウン初期化
+  ══════════════════════════════════════════ */
+  function setupPrayerScreen() {
+    const names    = (TAGS && TAGS.nameGroups.length)
+      ? TAGS.nameGroups
+      : [...new Set(DUMMY_PRAYER.map(p => p.名前))];
+    const statuses = (TAGS && TAGS.statusTags.length)
+      ? TAGS.statusTags
+      : [...new Set(DUMMY_PRAYER.map(p => p.ステータス))];
+
+    setupDD('prayerName', names, '名前', val => {
+      pFilterName = val; buildPrayerList();
+    });
+    setupDD('prayerStatus', statuses, 'ステータス', val => {
+      pFilterStatus = val; buildPrayerList();
+    });
+
+    buildPrayerList();
+  }
+
+  // 報告・祈りの課題画面の組み立ても buildAllScreens() でまとめて行う
+
+  /* ══════════════════════════════════════════
+     メッセージダミーデータ
+  ══════════════════════════════════════════ */
+  // ※ ローカルプレビュー用フォールバックデータ（GAS上では getAppData() の結果で上書きされる）
+  let DUMMY_MESSAGE = [
+    {
+      id:"m1", 日付:_demoDate("6/14"), 分類:"礼拝", 語り手:"田中兄", 書簡:"ローマ",
+      タイトル:"恵みによって義とされる", youtube:"",
+      summaries:[
+        "## 聖書箇所\nローマ人への手紙 3章21〜26節\n\n## メッセージのポイント\n\n### 1. 律法の外に現れた神の義\n神の義は、律法とは別に、しかも律法と預言者によって証しされて、今や現れました。イエス・キリストを信じる信仰による義であって、すべての信じる人に与えられます。\n\n### 2. すべての人が罪人\nユダヤ人もギリシア人も区別なく、すべての人が罪を犯し、神の栄光を受けられなくなっています。\n\n### 3. 価なしに義とされる\n神の恵みにより、キリスト・イエスによる贖いを通して、**価なしに義と認められます**。これが福音の核心です。\n\n## 今週の適用\n- 自分の努力ではなく、キリストへの信仰によって歩む\n- 神の恵みに感謝し、その恵みを周りの人に伝える"
+      ],
+      materials:[""]
+    },
+    {
+      id:"m2", 日付:_demoDate("6/7"), 分類:"礼拝", 語り手:"青木兄", 書簡:"マタイ",
+      タイトル:"山上の垂訓 ― 幸いなる者", youtube:"",
+      summaries:[
+        "## 聖書箇所\nマタイの福音書 5章1〜6節\n\n## 第一部：心の貧しさから柔和へ\n\nイエスは山の上で、神の国に生きる者の姿を教えられました。\n\n**心の貧しい者は幸いです** ― 神の前に自分の小ささを知る者に、天の御国が与えられます。\n\n**悲しむ者は幸いです** ― 罪と世の悲しみを知る者は、神の慰めを受けます。\n\n**柔和な者は幸いです** ― 力ではなく従順さによって、地を受け継ぎます。\n\n**義に飢え渇く者は幸いです** ― 神の正しさを求め続ける者は、満ち足りるでしょう。",
+        "## 聖書箇所\nマタイの福音書 5章7〜12節\n\n## 第二部：憐れみから迫害へ\n\n**憐れみ深い者は幸いです** ― 神の憐れみを受けた者は、同じ憐れみを持って他者に仕えます。\n\n**心の清い者は幸いです** ― 偽りや二心なく、神だけを求める者は神を見ます。\n\n**平和をつくる者は幸いです** ― 和解と回復の使者として生きる者は、神の子と呼ばれます。\n\n**義のために迫害される者は幸いです** ― これが地上の苦難と天の報いの逆説です。\n\n## 今週の適用\n- 八福のどれが今の自分に最も語りかけるか黙想する\n- 隣人に柔和さと憐れみをもって接する一週間を"
+      ],
+      materials:[""]
+    },
+    {
+      id:"m3", 日付:_demoDate("5/31"), 分類:"学び", 語り手:"上村兄", 書簡:"ヨハネ",
+      タイトル:"わたしはぶどうの木", youtube:"",
+      summaries:[
+        "## 聖書箇所\nヨハネの福音書 15章1〜11節\n\n## キリストとの結びつき\n\nイエスは「わたしはぶどうの木、あなたがたは枝です」と言われました。\n\n**つながっていること** ― 枝がぶどうの木につながっていなければ実を結べないように、私たちもキリストにつながっていなければ何もできません。\n\n**実を結ぶ秘訣** ― キリストの言葉にとどまり、祈りをもって主と交わり続けることが豊かな実を結ぶ道です。\n\n**喜びの完成** ― キリストにとどまることで、主の喜びが私たちの内に満ちます。\n\n## 今週の適用\n- 毎日の聖書通読と祈りの時間を大切に\n- 「自分にはできない、主が働いてくださる」という信仰を持つ"
+      ],
+      materials:["", ""]
+    },
+    {
+      id:"m4", 日付:_demoDate("5/24"), 分類:"礼拝", 語り手:"田中兄", 書簡:"詩篇",
+      タイトル:"主は我が羊飼い", youtube:"",
+      summaries:[
+        "## 聖書箇所\n詩篇 23篇\n\n## 羊飼いなる神\n\nダビデはこの詩において、主を羊飼いとして信頼する信仰を歌っています。\n\n**「私には乏しいことがありません」** ― 主が羊飼いであれば、必要なものはすべて与えられます。\n\n**「死の陰の谷を歩むとも」** ― 最も困難な状況においても、羊飼いである主が同行してくださいます。\n\n**「善と恵みとが私を追ってくる」** ― 人生を振り返ると、神の善と恵みが常に伴っていたことがわかります。\n\n## 今週の適用\n- 困難な時こそ「主が羊飼い」という告白を口にする\n- 過去の神の恵みを数え、感謝の祈りをささげる"
+      ],
+      materials:[]
+    },
+    {
+      id:"m5", 日付:_demoDate("5/17"), 分類:"伝道", 語り手:"青木兄・上村兄", 書簡:"使徒",
+      タイトル:"ペンテコステの奇跡", youtube:"",
+      summaries:[
+        "## 聖書箇所\n使徒の働き 2章1〜13節\n\n## 第一部：聖霊降臨の出来事\n\n弟子たちが一つ所に集まっていたとき、聖霊が炎のような舌として降りました。\n\n**「一つの場所に集まって」** ― 一致した祈りの場に、神は働かれます。\n\n**炎のような舌** ― 目に見えるしるしとして、聖霊は各人の上にとどまりました。\n\n**言語の奇跡** ― 弟子たちは聖霊に満たされ、様々な国の言葉で神の大きな御業を語り始めました。",
+        "## 聖書箇所\n使徒の働き 2章14〜21節\n\n## 第二部：現代への適用\n\nペテロはヨエル書を引用して、この出来事の意味を説明しました。\n\n**「すべての肉に注がれる聖霊」** ― 老いも若きも、男も女も、聖霊を受けます。現代においても同じ約束が有効です。\n\n**「主の名を呼び求める者は救われる」** ― 聖霊の働きの目的は、すべての人が救いを受けることです。\n\n## 今週の適用\n- 聖霊に満たされることを祈り求める\n- 周囲の未信者に主の名を証しする機会を持つ"
+      ],
+      materials:["", ""]
+    },
+    {
+      id:"m6", 日付:_demoDate("4/26"), 分類:"特伝", 語り手:"田中兄", 書簡:"コリント",
+      タイトル:"復活の証", youtube:"",
+      summaries:[
+        "## 聖書箇所\nコリント人への手紙 第一 15章1〜20節\n\n## 復活の事実\n\n**「まず第一のこと」** ― 福音の核心は、キリストが死んで葬られ、三日目に復活されたという事実です。\n\n**多くの証人** ― ケファ、十二人、五百人以上の兄弟たち、そしてパウロ自身が復活のキリストを見ました。\n\n**「キリストが復活しなかったなら」** ― 復活がなければ信仰は空虚です。しかし、キリストは確かによみがえられた！\n\n## 今週の適用\n- 復活の希望をもって今日を力強く生きる\n- 「キリストは復活された」という信仰の確信を新たにする"
+      ],
+      materials:[""]
+    },
+  ];
+
+  /* ── お気に入り（localStorage）── */
+  function getFavIds() {
+    try { return JSON.parse(localStorage.getItem('church_app_favorite_message_ids') || '[]'); }
+    catch { return []; }
+  }
+  function saveFavIds(ids) {
+    try { localStorage.setItem('church_app_favorite_message_ids', JSON.stringify(ids)); } catch {}
+  }
+  function toggleFav(id) {
+    const ids = getFavIds();
+    const idx = ids.indexOf(id);
+    if (idx >= 0) ids.splice(idx, 1); else ids.push(id);
+    saveFavIds(ids);
+    syncHeartBtns(id, ids.includes(id));
+    if (document.getElementById('screen-favorite').classList.contains('active')) {
+      setTimeout(() => renderFavoriteList(true), 280);
+    }
+  }
+  function syncHeartBtns(id, on) {
+    document.querySelectorAll(`.heart-btn[data-id="${id}"]`).forEach(btn => {
+      const svg = btn.querySelector('svg');
+      btn.style.color = on ? '#C84870' : '#C0B0A0';
+      svg.setAttribute('fill', on ? 'currentColor' : 'none');
+      btn.style.transition = 'transform 0.1s';
+      btn.style.transform  = 'scale(1.4)';
+      setTimeout(() => { btn.style.transform = 'scale(0.85)'; }, 100);
+      setTimeout(() => { btn.style.transform = 'scale(1)'; }, 200);
+    });
+  }
+
+  /* ── サムネイルグラデーション ── */
+  function thumbGrad(分類) {
+    if (分類 === '礼拝') return 'linear-gradient(140deg,#6858B8,#9888D8)';
+    if (分類 === '学び') return 'linear-gradient(140deg,#0882A8,#22BACC)';
+    if (分類 === '特別学び') return 'linear-gradient(140deg,#0A5C6E,#2FA8B8)';
+    if (分類 === '伝道') return 'linear-gradient(140deg,#C8781E,#E8A050)';
+    if (分類 === '特伝') return 'linear-gradient(140deg,#C84870,#F07898)';
+    return 'linear-gradient(140deg,#508050,#78BA76)';
+  }
+
+  /* ── メッセージチップ ── */
+  function msgChip(label, type) {
+    const map = {
+      '礼拝': '#EDE8FA/#3A2A8A', '学び': '#C8E4F4/#0A3A5A', '特別学び': '#D2ECEF/#0A4A52',
+      '伝道': '#FEE8C8/#6A3000', '特伝': '#FDDCEC/#7A1840',
+    };
+    const [bg, color] = (map[label] || '#EEE0D4/#4A3020').split('/');
+    return `<span style="display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:${bg};color:${color};">${label}</span>`;
+  }
+
+  /* ── 語り手チップ ── */
+  function speakerChip(name) {
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 10px 3px 8px;border-radius:20px;background:#EFE6DC;color:#5A4030;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      ${name}
+    </span>`;
+  }
+
+  /* ── メッセージカード ── */
+  function buildMessageCard(msg, cachedFavIds) {
+    const on = (cachedFavIds !== undefined ? cachedFavIds : getFavIds()).includes(msg.id);
+    const wd = getWD(msg.日付);
+    const [, m, d] = msg.日付.split('/');
+
+    // タグチップ：分類・語り手・書簡
+    const chips = [
+      msg.分類  ? msgChip(msg.分類)      : '',
+      msg.語り手 ? speakerChip(msg.語り手) : '',
+      msg.書簡  ? `<span style="display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#EEE0D4;color:#4A3020;">${msg.書簡}</span>` : '',
+    ].filter(Boolean).join('');
+
+    return `
+      <div onclick="openMessageModal('${msg.id}')" style="background:white;border-radius:18px;margin-bottom:10px;box-shadow:0 2px 14px rgba(44,22,4,0.08);overflow:hidden;cursor:pointer;">
+        <div style="display:flex;align-items:stretch;">
+          <!-- サムネイル -->
+          <div style="width:82px;flex-shrink:0;background:${thumbGrad(msg.分類)};display:flex;align-items:center;justify-content:center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="rgba(255,255,255,0.88)">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+          <!-- 本文 -->
+          <div style="flex:1;padding:12px 10px 12px 13px;min-width:0;">
+            <!-- タイトル（大きく・メイン） -->
+            <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;">
+              <p style="flex:1;font-size:17px;font-weight:800;color:#1E0E04;line-height:1.4;min-width:0;">${msg.タイトル}</p>
+              <button class="heart-btn" data-id="${msg.id}"
+                onclick="event.stopPropagation();toggleFav('${msg.id}')"
+                style="flex-shrink:0;width:36px;height:36px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:${on ? '#C84870' : '#C0B0A0'};">
+                <svg width="22" height="22" viewBox="0 0 24 24"
+                     fill="${on ? 'currentColor' : 'none'}"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+            </div>
+            <!-- 日付（2行目） -->
+            <p style="font-size:13px;color:#9A8070;margin-bottom:7px;">${m}/${d}（${wd}）</p>
+            <!-- タグチップ -->
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">${chips}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* ══════════════════════════════════════════
+     メッセージ画面
+  ══════════════════════════════════════════ */
+  let mFilter分類 = '', mFilter語り手 = '', mFilter書簡 = '';
+
+  function buildMessageList() {
+    const filtered = DUMMY_MESSAGE.filter(msg =>
+      toDateObj(msg.日付) <= TODAY &&          // 今日以前のみ表示
+      (!mFilter分類  || msg.分類 === mFilter分類) &&
+      (!mFilter語り手 || msg.語り手.split('・').includes(mFilter語り手)) &&
+      (!mFilter書簡  || msg.書簡 === mFilter書簡)
+    ).sort((a, b) => toDateObj(b.日付) - toDateObj(a.日付));
+    const el = document.getElementById('msg-list');
+    if (!el) return;
+    if (!filtered.length) {
+      el.innerHTML = '<p style="text-align:center;padding:48px 0;color:#B0A090;font-size:16px;">該当するメッセージがありません</p>';
+      return;
+    }
+
+    let html = '';
+    let lastMonth = '';
+    const cachedFavIds = getFavIds();
+    filtered.forEach((msg, idx) => {
+      const monthKey = monthYearLabel(msg.日付);
+      if (monthKey !== lastMonth) {
+        lastMonth = monthKey;
+        html += _monthDiv(monthKey, idx === 0);
+      }
+      html += buildMessageCard(msg, cachedFavIds);
+    });
+    el.innerHTML = html;
+    requestAnimationFrame(() => window.updateScrollbar?.());
+  }
+
+  function setupMessageScreen() {
+    const classes  = (TAGS && TAGS.classTags.length)
+      ? TAGS.classTags
+      : [...new Set(DUMMY_MESSAGE.map(m => m.分類).filter(Boolean))];
+    const speakers = (TAGS && TAGS.speakerTags.length)
+      ? TAGS.speakerTags
+      : [...new Set(DUMMY_MESSAGE.flatMap(m => m.語り手.split('・')).filter(Boolean))];
+    const epistles = (TAGS && TAGS.epistleTags.length)
+      ? TAGS.epistleTags
+      : [...new Set(DUMMY_MESSAGE.map(m => m.書簡).filter(Boolean))];
+
+    setupDD('msg分類',  classes,  '分類',  v => { mFilter分類  = v; buildMessageList(); });
+    setupDD('msg語り手', speakers, '語り手', v => { mFilter語り手 = v; buildMessageList(); });
+    setupDD('msg書簡',  epistles, '書簡',  v => { mFilter書簡  = v; buildMessageList(); });
+    buildMessageList();
+  }
+
+  /* ══════════════════════════════════════════
+     いいね画面
+  ══════════════════════════════════════════ */
+  let _favRenderKey = null;   // ダーティチェック用：前回描画時のお気に入りキー
+
+  function renderFavoriteList(force) {
+    const el = document.getElementById('fav-list');
+    if (!el) return;
+    const ids     = getFavIds();
+    const cacheKey = ids.slice().sort().join(',');
+    if (!force && cacheKey === _favRenderKey) return;  // 変化なし → 再描画スキップ
+    _favRenderKey = cacheKey;
+    const favMsgs = DUMMY_MESSAGE.filter(m => ids.includes(m.id));
+    if (!favMsgs.length) {
+      el.innerHTML = `
+        <div style="text-align:center;padding:52px 16px;color:#B0A090;">
+          <div style="font-size:44px;margin-bottom:14px;">🤍</div>
+          <p style="font-size:16px;font-weight:700;color:#1E0E04;margin-bottom:8px;">まだ「いいね」がありません</p>
+          <p style="font-size:14px;line-height:1.75;">メッセージ画面で ♥ をタップすると<br>ここに保存されます</p>
+        </div>`;
+      return;
+    }
+    el.innerHTML = favMsgs.map(m => buildMessageCard(m, ids)).join('');
+  }
+
+  // メッセージ・いいね・「記録を見る」の組み立ても buildAllScreens() でまとめて行う
+
+  /* ── 丸数字ヘルパー ── */
+  const _CIRCLED = ['①','②','③','④','⑤'];
+  function _circled(n) { return _CIRCLED[n - 1] || String(n); }
+
+  /* ── tabs 定義を summaries・materials から組み立て ── */
+  function _buildTabDefs(msg) {
+    const tabs = [];
+    const sums = msg.summaries || [];
+    const mats = msg.materials || [];
+    const multiS = sums.length > 1;
+    const multiM = mats.length > 1;
+    sums.forEach((content, i) =>
+      tabs.push({ label: multiS ? `要約${_circled(i+1)}` : '要約', type:'summary', content }));
+    mats.forEach((content, i) =>
+      tabs.push({ label: multiM ? `資料${_circled(i+1)}` : '資料', type:'material', content }));
+    return tabs;
+  }
+
+  /* ── タブバー＋スライダーを動的に描画 ── */
+  function _renderMsgTabs(tabs) {
+    const fs = tabs.length > 3 ? '13px' : '15px';
+    document.getElementById('msgTabBar').innerHTML = tabs.map((t, i) => `
+      <button onclick="switchMsgTab(${i})" id="msgTab_${i}" style="
+        flex:1;height:42px;border:none;cursor:pointer;border-radius:10px;
+        font-size:${fs};font-weight:${i===0?'700':'600'};
+        background:${i===0?'#5A4030':'transparent'};
+        color:${i===0?'white':'#9A8070'};
+        transition:background 0.2s,color 0.2s;
+        white-space:nowrap;padding:0 4px;
+      ">${t.label}</button>
+    `).join('');
+
+    document.getElementById('msgTabSlider').innerHTML = tabs.map(t => {
+      const isSumm = t.type === 'summary';
+      const body = isSumm
+        ? (t.content
+            ? (typeof marked !== 'undefined' ? marked.parse(_linkifySafe(t.content)) : t.content.replace(/\n/g,'<br>'))
+            : '<p style="color:#B0A090;text-align:center;padding:32px 0;">要約はまだ作成されていません</p>')
+        : (t.content
+            ? `<img src="${t.content}" style="width:100%;border-radius:12px;display:block;">`
+            : `<div style="text-align:center;padding:48px 16px;color:#B0A090;">
+                 <div style="font-size:40px;margin-bottom:14px;">📄</div>
+                 <p style="font-size:16px;font-weight:600;color:#1E0E04;margin-bottom:6px;">資料は準備中です</p>
+                 <p style="font-size:14px;line-height:1.7;">印刷資料やスライドが<br>ここに表示されます</p>
+               </div>`);
+      return `<div class="${isSumm?'md-body':''}" style="min-width:100%;padding:22px 20px 52px;">${body}</div>`;
+    }).join('');
+
+    window._msgTabCount = tabs.length;
+  }
+
+  /* ══════════════════════════════════════════
+     メッセージ詳細モーダル
+  ══════════════════════════════════════════ */
+  let currentMsgId = null;
+  let msgTabCurrent = 0;
+
+  function openMessageModal(id) {
+    const msg = DUMMY_MESSAGE.find(m => m.id === id);
+    if (!msg) return;
+    currentMsgId = id;
+
+    // タイトル・ハート
+    document.getElementById('msgModalTitle').textContent = msg.タイトル;
+    _updateModalHeart();
+
+    // YouTube / プレースホルダー
+    const iframe = document.getElementById('msgModalIframe');
+    const ph     = document.getElementById('msgModalPlaceholder');
+    const phLbl  = document.getElementById('msgModalPlaceholderLabel');
+    if (msg.youtube) {
+      iframe.src = msg.youtube;
+      ph.style.display = 'none';
+    } else {
+      iframe.src = '';
+      ph.style.display = 'flex';
+      ph.style.background = thumbGrad(msg.分類);
+      phLbl.textContent = msg.タイトル;
+    }
+
+    // タブを動的に組み立てて描画
+    _renderMsgTabs(_buildTabDefs(msg));
+
+    // リセット
+    msgTabCurrent = 0;
+    switchMsgTab(0, false);
+    document.getElementById('msgModalScroll').scrollTop = 0;
+    document.getElementById('msgModal').classList.add('open');
+  }
+
+  function closeMessageModal() {
+    document.getElementById('msgModal').classList.remove('open');
+    setTimeout(() => {
+      document.getElementById('msgModalIframe').src = '';
+      currentMsgId = null;
+    }, 300);
+  }
+
+  function _updateModalHeart() {
+    if (!currentMsgId) return;
+    const on  = getFavIds().includes(currentMsgId);
+    const btn = document.getElementById('msgModalHeart');
+    const svg = document.getElementById('msgModalHeartSvg');
+    btn.style.color = on ? '#C84870' : '#C0B0A0';
+    svg.setAttribute('fill', on ? 'currentColor' : 'none');
+  }
+
+  function toggleFavModal() {
+    if (!currentMsgId) return;
+    toggleFav(currentMsgId);
+    _updateModalHeart();
+  }
+
+  /* ── タブ切り替え（N タブ対応）── */
+  function switchMsgTab(idx, animate) {
+    if (animate === undefined) animate = true;
+    msgTabCurrent = idx;
+    const slider = document.getElementById('msgTabSlider');
+    slider.style.transition = animate ? 'transform 0.28s ease-out' : 'none';
+    slider.style.transform  = `translateX(${idx * -100}%)`;
+
+    const count = window._msgTabCount || 2;
+    for (let i = 0; i < count; i++) {
+      const btn = document.getElementById(`msgTab_${i}`);
+      if (!btn) continue;
+      btn.style.background = i === idx ? '#5A4030' : 'transparent';
+      btn.style.color      = i === idx ? 'white'   : '#9A8070';
+      btn.style.fontWeight = i === idx ? '700'     : '600';
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     メッセージ詳細タブ スワイプ（N タブ対応）
+  ══════════════════════════════════════════ */
+  (function() {
+    const slider = document.getElementById('msgTabSlider');
+    if (!slider) return;
+    let sx = null, sy = null;
+    slider.addEventListener('pointerdown', e => {
+      if (e.clientX <= SWIPE_BACK_EDGE) return; // 左端は「戻る」スワイプに譲る
+      sx = e.clientX; sy = e.clientY;
+      slider.setPointerCapture(e.pointerId);
+      slider.style.transition = 'none';
+    });
+    slider.addEventListener('pointermove', e => {
+      if (sx === null) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        const count = window._msgTabCount || 2;
+        const clamp = Math.max(-(count-1)*100, Math.min(0,
+          msgTabCurrent*-100 + (dx/(slider.parentElement.clientWidth||1))*100));
+        slider.style.transform = `translateX(${clamp}%)`;
+      }
+    });
+    slider.addEventListener('pointerup', e => {
+      if (sx === null) return;
+      const dx = e.clientX-sx, dy = e.clientY-sy;
+      const count = window._msgTabCount || 2;
+      slider.style.transition = 'transform 0.28s ease-out';
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) >= 40) {
+        if      (dx < 0 && msgTabCurrent < count-1) switchMsgTab(msgTabCurrent+1);
+        else if (dx > 0 && msgTabCurrent > 0)        switchMsgTab(msgTabCurrent-1);
+        else slider.style.transform = `translateX(${msgTabCurrent*-100}%)`;
+      } else {
+        slider.style.transform = `translateX(${msgTabCurrent*-100}%)`;
+      }
+      sx = null;
+    });
+  })();
+
+  /* ══════════════════════════════════════════
+     カスタムスクロールバー
+     ・押した瞬間からすべての月をバブルとして表示（フォト風スクラブ）
+     ・ドラッグ中は現在位置に最も近い月を強調表示
+  ══════════════════════════════════════════ */
+  (function initScrollbar() {
+    const content = document.getElementById('content');
+    const bar     = document.getElementById('fsBar');
+    const thumb   = document.getElementById('fsThumb');
+    const touch   = document.getElementById('fsTouch');
+    const stack   = document.getElementById('fsBubbleStack');
+    if (!bar || !content) return;
+
+    /* ── #app 内の縦位置をヘッダー・ナビに合わせる ── */
+    function positionBar() {
+      const hdr = document.querySelector('#app > header');
+      const nav = document.querySelector('#app > nav');
+      const hH  = hdr ? hdr.offsetHeight : 80;
+      const nH  = nav ? nav.offsetHeight : 72;
+      bar.style.top    = hH + 'px';
+      bar.style.bottom = nH + 'px';
+    }
+    positionBar();
+    window.addEventListener('resize', positionBar);
+
+    /* ── サム位置更新 ── */
+    function updateThumb() {
+      const sh = content.scrollHeight;
+      const ch = content.clientHeight;
+      if (sh <= ch + 4) { bar.style.opacity = '0'; return; }
+      bar.style.opacity = '1';
+
+      const barH = bar.offsetHeight;
+      const tH   = Math.max(28, barH * ch / sh);
+      const tTop = (content.scrollTop / (sh - ch)) * (barH - tH);
+      thumb.style.height = tH + 'px';
+      thumb.style.top    = tTop + 'px';
+
+      if (bubbleActive) showMonthBubbles();
+    }
+    content.addEventListener('scroll', updateThumb, { passive:true });
+    window.updateScrollbar = () => requestAnimationFrame(updateThumb);
+    window.updateScrollbar();
+
+    /* ── 現在月を検出 ── */
+    function getCurrentMonth() {
+      const active = document.querySelector('.screen.active');
+      if (!active) return '';
+      const midY  = content.getBoundingClientRect().top + content.clientHeight * 0.35;
+      let cur = '';
+      active.querySelectorAll('[data-month]').forEach(el => {
+        if (el.getBoundingClientRect().top <= midY) cur = el.dataset.month;
+      });
+      return cur;
+    }
+
+    /* ── 全月をバブルとして表示（フォト風スクラブ）
+       ・各月見出し（[data-month]）の実際のスクロール位置に応じてバブルを配置
+       ・近すぎるバブル同士は重ならないよう最小間隔を確保（簡易デクラッター）
+       ・現在位置に最も近い月は大きく強調表示 ── */
+    function showMonthBubbles() {
+      const active = document.querySelector('.screen.active');
+      const sh = content.scrollHeight, ch = content.clientHeight;
+      const range = sh - ch;
+      if (!active || range <= 0) { stack.style.display = 'none'; return; }
+
+      const months = [...active.querySelectorAll('[data-month]')];
+      if (!months.length) { stack.style.display = 'none'; return; }
+
+      const hH    = parseFloat(bar.style.top) || 80;
+      const barH  = bar.offsetHeight;
+      const cRect = content.getBoundingClientRect();
+      const curLabel = getCurrentMonth();
+
+      const items = months.map(el => {
+        const elTopAbs = el.getBoundingClientRect().top - cRect.top + content.scrollTop;
+        const ratio = Math.max(0, Math.min(1, elTopAbs / range));
+        return { label: el.dataset.month, top: ratio * barH, active: el.dataset.month === curLabel };
+      });
+
+      /* 重なり回避（簡易デクラッター）。MIN_GAP で収まらない場合は均等配置にフォールバック */
+      const MIN_GAP = 25;
+      const n = items.length;
+      if (n > 1 && (n - 1) * MIN_GAP > barH) {
+        const gap = barH / (n - 1);
+        items.forEach((it, i) => { it.top = i * gap; });
+      } else {
+        for (let i = 1; i < n; i++) {
+          if (items[i].top - items[i - 1].top < MIN_GAP) items[i].top = items[i - 1].top + MIN_GAP;
+        }
+        if (n && items[n - 1].top > barH) {
+          items[n - 1].top = barH;
+          for (let i = n - 2; i >= 0; i--) {
+            if (items[i + 1].top - items[i].top < MIN_GAP) items[i].top = items[i + 1].top - MIN_GAP;
+          }
+        }
+      }
+
+      stack.innerHTML = items.map(it => `
+        <div style="
+          position:absolute; right:20px; top:${Math.round(hH + it.top)}px;
+          transform:translateY(-50%); white-space:nowrap; border-radius:9px;
+          box-shadow:0 3px 12px rgba(44,22,4,0.22);
+          ${it.active
+            ? 'background:#C8781E;color:#FFFFFF;font-size:14px;font-weight:800;padding:8px 15px;z-index:1;'
+            : 'background:#5A4030;color:rgba(255,255,255,0.82);font-size:11px;font-weight:700;padding:5px 11px;'}
+        ">${it.label}</div>`).join('');
+      stack.style.display = 'block';
+    }
+
+    /* ── タッチ操作 ── */
+    let dragging = false, bubbleActive = false;
+
+    function dragToY(clientY) {
+      const rect = bar.getBoundingClientRect();
+      const relY = Math.max(0, Math.min(bar.offsetHeight, clientY - rect.top));
+      const sh = content.scrollHeight, ch = content.clientHeight;
+      const tH = parseFloat(thumb.style.height) || 28;
+      const ratio = (bar.offsetHeight > tH)
+        ? Math.max(0, Math.min(1, (relY - tH/2) / (bar.offsetHeight - tH)))
+        : 0;
+      content.scrollTop = ratio * (sh - ch);
+      updateThumb();
+    }
+
+    touch.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      touch.setPointerCapture(e.pointerId);
+      dragging = true;
+      bubbleActive = true;          // 押した瞬間から全月バブルを表示
+      thumb.style.background = '#C8781E';
+      dragToY(e.clientY);
+    });
+
+    touch.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      bubbleActive = true;
+      dragToY(e.clientY);
+    });
+
+    touch.addEventListener('pointerup', () => {
+      dragging = false;
+      thumb.style.background = '#C8A070';
+      setTimeout(() => {
+        bubbleActive = false;
+        stack.style.display = 'none';
+      }, 700);
+    });
+  })();
+
+  /* ══════════════════════════════════════════
+     検索機能
+  ══════════════════════════════════════════ */
+
+  /* ── カテゴリ切り替え ── */
+  function setSearchCat(cat) {
+    searchCat = cat;
+    document.querySelectorAll('.search-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cat === cat);
+    });
+    onSearchInput(document.getElementById('searchInput').value);
+  }
+
+  function openSearchModal() {
+    searchCat = 'all';
+    document.querySelectorAll('.search-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cat === 'all');
+    });
+    document.getElementById('searchModal').classList.add('open');
+    setTimeout(() => { const i = document.getElementById('searchInput'); if (i) i.focus(); }, 200);
+  }
+
+  function closeSearchModal() {
+    document.getElementById('searchModal').classList.remove('open');
+    const i = document.getElementById('searchInput');
+    if (i) i.value = '';
+    document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('searchHint').style.display = '';
+    document.getElementById('searchScroll').scrollTop = 0;
+    searchCat = 'all';
+  }
+
+  /* ── テキストハイライト ── */
+  // qOrTerms: 文字列 or 文字列配列（複数キーワード対応）
+  function hlText(text, qOrTerms) {
+    if (!qOrTerms || !text) return text || '';
+    const terms = Array.isArray(qOrTerms) ? qOrTerms : [qOrTerms];
+    let result = text;
+    terms.forEach(q => {
+      if (!q) return;
+      const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.replace(new RegExp(esc, 'gi'),
+        m => `<mark style="background:#FEE8C8;color:#6A3000;border-radius:2px;padding:0 1px;">${m}</mark>`);
+    });
+    return result;
+  }
+
+  /* ── セクションヘッダー ── */
+  function _searchHead(label, count, color) {
+    return `<div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;">
+      <div style="width:4px;height:20px;background:${color};border-radius:2px;flex-shrink:0;"></div>
+      <h3 style="font-size:16px;font-weight:800;color:#1E0E04;">${label}</h3>
+      <span style="font-size:13px;color:#B0A090;font-weight:600;">${count}件</span>
+    </div>`;
+  }
+
+  /* ── リアルタイム横断検索 ── */
+  function onSearchInput(raw) {
+    const input   = (raw || '').trim();
+    // 全角スペース・半角スペースで分割、空文字除去 → AND検索用キーワード配列
+    const terms   = input.split(/[\s　]+/).filter(Boolean);
+    const hint    = document.getElementById('searchHint');
+    const results = document.getElementById('searchResults');
+
+    if (!terms.length) { hint.style.display = ''; results.innerHTML = ''; return; }
+    hint.style.display = 'none';
+
+    const showReport  = searchCat === 'all' || searchCat === 'report';
+    const showPrayer  = searchCat === 'all' || searchCat === 'prayer';
+    const showMessage = searchCat === 'all' || searchCat === 'message';
+
+    // AND条件：fields の中に term を含む field が1つでもあれば OK（各 term についてそれを確認）
+    const matchAll = (fields) => terms.every(t => fields.some(f => (f || '').includes(t)));
+
+    /* 各データを検索（日付降順ソート） */
+    const reps = showReport ? DUMMY_REPORT.filter(r =>
+      matchAll([r.タグ, r.内容]))
+      .sort((a, b) => toDateObj(b.日付) - toDateObj(a.日付)) : [];
+
+    const prys = showPrayer ? DUMMY_PRAYER.filter(p =>
+      matchAll([p.名前, p.課題, p.ステータス]))
+      .sort((a, b) => toDateObj(b.日付) - toDateObj(a.日付)) : [];
+
+    const msgs = showMessage ? DUMMY_MESSAGE.filter(msg =>
+      matchAll([
+        msg.タイトル,
+        msg.分類  || '',
+        msg.語り手 || '',
+        msg.書簡  || '',
+        ...(msg.summaries || [])
+      ]))
+      .sort((a, b) => toDateObj(b.日付) - toDateObj(a.日付)) : [];
+
+    if (!reps.length && !prys.length && !msgs.length) {
+      results.innerHTML = `<div style="text-align:center;padding:48px 16px;color:#B0A090;">
+        <div style="font-size:36px;margin-bottom:12px;">📭</div>
+        <p style="font-size:16px;font-weight:700;color:#1E0E04;margin-bottom:6px;">「${input}」の結果なし</p>
+        <p style="font-size:14px;">別のキーワードをお試しください</p>
+      </div>`;
+      return;
+    }
+
+    let html = '';
+
+    /* ── 報告 ── */
+    if (reps.length) {
+      html += _searchHead('報告', reps.length, '#0882A8');
+      reps.forEach(r => {
+        const ts = getTagStyle(r.タグ);
+        const [, rm, rd] = r.日付.split('/');
+        html += `<div onclick="closeSearchModal();setTimeout(()=>openDayModal('${r.日付}'),60);"
+          style="background:white;border-radius:16px;padding:14px 16px;margin-bottom:8px;cursor:pointer;box-shadow:0 2px 12px rgba(44,22,4,0.08);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+            <span style="font-size:12px;font-weight:700;padding:3px 11px;border-radius:20px;background:${ts.bg};color:${ts.color};border:${ts.border};">${r.タグ}</span>
+            <span style="font-size:12px;color:#B0A090;margin-left:auto;">${rm}月${rd}日</span>
+          </div>
+          <p style="font-size:15px;color:#1E0E04;line-height:1.72;white-space:pre-line;">${hlText(r.内容, terms)}</p>
+        </div>`;
+      });
+    }
+
+    /* ── 祈りの課題 ── */
+    if (prys.length) {
+      html += _searchHead('祈りの課題', prys.length, '#508050');
+      prys.forEach(p => {
+        const st = statusStyle(p.ステータス);
+        const [, pm, pd] = p.日付.split('/');
+        html += `<div onclick="closeSearchModal();setTimeout(()=>openDayModal('${p.日付}'),60);"
+          style="background:white;border-radius:16px;padding:14px 16px;margin-bottom:8px;cursor:pointer;box-shadow:0 2px 12px rgba(44,22,4,0.08);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+            <span style="font-size:17px;font-weight:700;color:#1E0E04;">${hlText(p.名前, terms)}</span>
+            <span style="font-size:12px;font-weight:700;padding:3px 12px;border-radius:20px;background:${st.bg};color:${st.color};border:1px solid ${st.bd};margin-left:auto;">${p.ステータス}</span>
+          </div>
+          <p style="font-size:15px;color:#2C1A0E;line-height:1.72;margin-bottom:5px;white-space:pre-line;">${hlText(p.課題, terms)}</p>
+          <p style="font-size:12px;color:#B0A090;text-align:right;">${pm}月${pd}日</p>
+        </div>`;
+      });
+    }
+
+    /* ── メッセージ ── */
+    if (msgs.length) {
+      html += _searchHead('メッセージ', msgs.length, '#6858B8');
+      msgs.forEach(msg => {
+        const wd = getWD(msg.日付);
+        const [, mm, md] = msg.日付.split('/');
+        const mainLine = [`${mm}/${md}（${wd}）`, msg.分類, msg.語り手].filter(Boolean).join('　');
+        html += `<div onclick="closeSearchModal();setTimeout(()=>openMessageModal('${msg.id}'),60);"
+          style="background:white;border-radius:16px;margin-bottom:8px;overflow:hidden;cursor:pointer;box-shadow:0 2px 12px rgba(44,22,4,0.08);display:flex;align-items:stretch;">
+          <div style="width:6px;flex-shrink:0;background:${thumbGrad(msg.分類)};"></div>
+          <div style="flex:1;padding:13px 12px;">
+            <p style="font-size:15px;font-weight:700;color:#1E0E04;margin-bottom:3px;">${hlText(mainLine, terms)}</p>
+            <p style="font-size:14px;color:#7A5A38;line-height:1.4;">${hlText(msg.タイトル, terms)}</p>
+          </div>
+          <div style="display:flex;align-items:center;padding-right:12px;flex-shrink:0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C8B8A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>`;
+      });
+    }
+
+    results.innerHTML = html;
+  }
+
+  /* ══════════════════════════════════════════
+     スワイプで戻る（画面左端からの右スワイプ）
+     ・「←」ボタンと併用。画面左端 SWIPE_BACK_EDGE px 以内で
+       始まった横方向優位のドラッグだけを「戻る」として扱う
+     ・ボタン等の操作や縦スクロールとは干渉しないよう、
+       実際に横移動が確定するまではポインターを奪わない
+  ══════════════════════════════════════════ */
+  function setupEdgeSwipeBack(modalId, closeFn) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    const THRESHOLD = 70; // この距離(px)以上スワイプしたら閉じる
+    let sx = null, sy = null, watching = false, captured = false;
+
+    modal.addEventListener('pointerdown', e => {
+      if (e.clientX > SWIPE_BACK_EDGE) return;
+      if (e.target.closest('button, a, input, textarea, select')) return;
+      sx = e.clientX; sy = e.clientY;
+      watching = true; captured = false;
+    });
+
+    modal.addEventListener('pointermove', e => {
+      if (!watching || sx === null) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!captured) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;       // 微小な動きは無視
+        if (Math.abs(dy) >= Math.abs(dx)) { watching = false; return; } // 縦移動はスクロールに譲る
+        captured = true;
+        try { modal.setPointerCapture(e.pointerId); } catch (_) {}
+        modal.style.transition = 'none';
+      }
+      if (dx > 0) modal.style.transform = `translateX(${dx}px)`;
+    });
+
+    function release(e) {
+      if (!watching) return;
+      const dx = sx !== null ? e.clientX - sx : 0;
+      watching = false;
+      if (captured) {
+        modal.style.transition = '';
+        modal.style.transform  = '';
+        if (dx >= THRESHOLD) closeFn();
+      }
+      sx = sy = null; captured = false;
+    }
+    modal.addEventListener('pointerup', release);
+    modal.addEventListener('pointercancel', release);
+  }
+
+  setupEdgeSwipeBack('msgModal',    closeMessageModal);
+  setupEdgeSwipeBack('dayModal',    closeDayModal);
+
+  /* ══════════════════════════════════════════
+     画面の組み立て（4つのデータが出揃った状態でまとめて呼ぶ）
+  ══════════════════════════════════════════ */
+  function buildAllScreens() {
+    /* ── ホーム画面：直近の予定 ── */
+    document.getElementById('home-schedule').innerHTML = buildHomeSchedule();
+
+    // 予定テーブルの横スクロール検出 → フェード＋ヒントを表示
+    requestAnimationFrame(() => {
+      const sc   = document.getElementById('home-schedule');
+      const fade = document.getElementById('schedule-fade');
+      const hint = document.getElementById('schedule-hint');
+      if (sc && sc.scrollWidth > sc.clientWidth + 2) {
+        fade.style.opacity = '1';
+        hint.style.display = 'block';
+        sc.addEventListener('scroll', () => {
+          const atEnd = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 4;
+          fade.style.opacity = atEnd ? '0' : '1';
+          hint.style.display = atEnd ? 'none' : 'block';
+        });
+      }
+    });
+
+    /* ── 報告・祈りの課題 ── */
+    buildReportScreen();
+    setupPrayerScreen();
+
+    /* ── メッセージ・いいね ── */
+    setupMessageScreen();
+    renderFavoriteList(true);
+
+    /* ── ホーム画面：記録を見る（報告・祈り・メッセージが出揃ったここで実行） ── */
+    const recordTags = (TAGS && TAGS.scheduleTags.length)
+      ? TAGS.scheduleTags
+      : [...new Set(DUMMY_SCHEDULE.map(e => e.タグ).filter(Boolean))];
+    setupDD('recordsTag', recordTags, 'タグ', val => {
+      rFilterTag = val;
+      document.getElementById('home-records').innerHTML = buildHomeRecords();
+    });
+    document.getElementById('home-records').innerHTML = buildHomeRecords();
+  }
+
+  /* ══════════════════════════════════════════
+     データ取得・初期化フロー
+     GAS上では google.script.run.getAppData() を呼び、結果でフォールバックデータを
+     上書きしてから画面を組み立てる。google.script.run が存在しないローカルプレビュー
+     環境では、スクリプト冒頭に埋め込み済みのフォールバックデータでそのまま組み立てる。
+  ══════════════════════════════════════════ */
+  function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay) return;
+    overlay.style.opacity = '0';
+    setTimeout(() => { overlay.style.display = 'none'; }, 250);
+  }
+
+  function showLoadingError() {
+    const spinner = document.getElementById('loadingSpinner');
+    const errorEl = document.getElementById('loadingError');
+    if (spinner) spinner.style.display = 'none';
+    if (errorEl) errorEl.style.display = 'block';
+  }
+
+  function onAppDataLoaded(data) {
+    data = data || {};
+    DUMMY_SCHEDULE = data.schedule || [];
+    DUMMY_REPORT   = data.report   || [];
+    DUMMY_PRAYER   = data.prayer   || [];
+    DUMMY_MESSAGE  = data.message  || [];
+    TAGS           = data.tags     || null;
+    buildAllScreens();
+    hideLoadingOverlay();
+  }
+
+  function onAppDataError(error) {
+    console.error('getAppData() に失敗しました:', error);
+    showLoadingError();
+  }
+
+  function initApp() {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      // GAS 上で直接開かれている場合（旧 URL アクセス時の互換維持）
+      google.script.run
+        .withSuccessHandler(onAppDataLoaded)
+        .withFailureHandler(onAppDataError)
+        .getAppData();
+    } else if (GAS_URL) {
+      // GitHub Pages から fetch でデータ取得
+      fetch(GAS_URL + '?action=getData')
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(onAppDataLoaded)
+        .catch(onAppDataError);
+    } else {
+      // GAS_URL 未設定 or ローカルプレビュー：フォールバックデータで組み立てる
+      buildAllScreens();
+      hideLoadingOverlay();
+    }
+  }
+
+  initApp();
+</script>
+</body>
+</html>

@@ -161,6 +161,7 @@
       opacity: 0;
       transform: translateX(100vw);
       transition: opacity 0.28s ease-out, transform 0.28s ease-out;
+      will-change: transform, opacity;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -219,6 +220,7 @@
       opacity: 0;
       transform: translateY(-100%);
       transition: opacity 0.28s ease-out, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+      will-change: transform, opacity;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -953,12 +955,17 @@
 
   /* ── 日付ユーティリティ（日付は常に "yyyy/M/d" 形式の文字列として扱う） ── */
   // "yyyy/M/d" → Dateオブジェクト（文字列に含まれる実際の年を使う。形式が不正ならnull）
+  // 同じ文字列に対して new Date を何度も生成しないようにキャッシュする
+  const _dateCache = new Map();
   function toDateObj(str) {
     if (!str) return null;
+    if (_dateCache.has(str)) return _dateCache.get(str);
     const parts = String(str).split('/').map(Number);
-    if (parts.length < 3 || parts.some(isNaN)) return null;
+    if (parts.length < 3 || parts.some(isNaN)) { _dateCache.set(str, null); return null; }
     const [y, m, d] = parts;
-    return new Date(y, m - 1, d);
+    const result = new Date(y, m - 1, d);
+    _dateCache.set(str, result);
+    return result;
   }
   // "yyyy/M/d" → 曜日
   function getWD(str) {
@@ -1301,6 +1308,9 @@
     tab.classList.add('active');
     const target = document.getElementById('screen-' + id);
     if (target) target.classList.add('active');
+
+    // 未ビルドのタブは初回アクティブ時に構築（画面が visible になった後で呼ぶ）
+    _ensureTabBuilt(id);
 
     // Update header
     screenTitle.textContent = title;
@@ -2178,7 +2188,12 @@
 
       if (bubbleActive) showMonthBubbles();
     }
-    content.addEventListener('scroll', updateThumb, { passive:true });
+    /* スクロールは rAF でスロットリングして 1 フレームに 1 回だけ更新 */
+    let _scrollRafId = null;
+    content.addEventListener('scroll', () => {
+      if (_scrollRafId !== null) return;
+      _scrollRafId = requestAnimationFrame(() => { _scrollRafId = null; updateThumb(); });
+    }, { passive: true });
     window.updateScrollbar = () => requestAnimationFrame(updateThumb);
     window.updateScrollbar();
 
@@ -2194,23 +2209,31 @@
       return cur;
     }
 
+    let _lastBubbleLabel = null; // バブル再描画の差分チェック用
+
     /* ── 全月をバブルとして表示（フォト風スクラブ）
        ・各月見出し（[data-month]）の実際のスクロール位置に応じてバブルを配置
        ・近すぎるバブル同士は重ならないよう最小間隔を確保（簡易デクラッター）
-       ・現在位置に最も近い月は大きく強調表示 ── */
+       ・現在位置に最も近い月は大きく強調表示
+       ・アクティブ月が変わったときだけ innerHTML を再生成（毎ムーブの再描画を抑制）── */
     function showMonthBubbles() {
       const active = document.querySelector('.screen.active');
       const sh = content.scrollHeight, ch = content.clientHeight;
       const range = sh - ch;
-      if (!active || range <= 0) { stack.style.display = 'none'; return; }
+      if (!active || range <= 0) { stack.style.display = 'none'; _lastBubbleLabel = null; return; }
 
       const months = [...active.querySelectorAll('[data-month]')];
-      if (!months.length) { stack.style.display = 'none'; return; }
+      if (!months.length) { stack.style.display = 'none'; _lastBubbleLabel = null; return; }
+
+      const curLabel = getCurrentMonth();
+
+      /* アクティブ月が変わっていなければ再描画しない */
+      if (curLabel === _lastBubbleLabel && stack.style.display === 'block') return;
+      _lastBubbleLabel = curLabel;
 
       const hH    = parseFloat(bar.style.top) || 80;
       const barH  = bar.offsetHeight;
       const cRect = content.getBoundingClientRect();
-      const curLabel = getCurrentMonth();
 
       const items = months.map(el => {
         const elTopAbs = el.getBoundingClientRect().top - cRect.top + content.scrollTop;
@@ -2281,6 +2304,7 @@
     touch.addEventListener('pointerup', () => {
       dragging = false;
       thumb.style.background = '#C8A070';
+      _lastBubbleLabel = null; // キャッシュリセット（次回押下で必ず再描画）
       setTimeout(() => {
         bubbleActive = false;
         stack.style.display = 'none';
@@ -2345,7 +2369,12 @@
   }
 
   /* ── リアルタイム横断検索 ── */
+  let _searchTimer = null;
   function onSearchInput(raw) {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => _doSearch(raw), 120);
+  }
+  function _doSearch(raw) {
     const input   = (raw || '').trim();
     // 全角スペース・半角スペースで分割、空文字除去 → AND検索用キーワード配列
     const terms   = input.split(/[\s　]+/).filter(Boolean);
@@ -2503,10 +2532,27 @@
   setupEdgeSwipeBack('dayModal',    closeDayModal);
 
   /* ══════════════════════════════════════════
+     タブの遅延ビルド管理
+     ・ホーム画面は buildAllScreens() で即時ビルド
+     ・報告・祈り・メッセージは初回アクティブ時に初めて構築（起動時の重い処理を分散）
+     ・いいねは毎回 renderFavoriteList() が呼ばれるので _tabBuilt 不要
+  ══════════════════════════════════════════ */
+  const _tabBuilt = new Set();
+
+  function _ensureTabBuilt(id) {
+    if (_tabBuilt.has(id)) return;
+    _tabBuilt.add(id);
+    if (id === 'report')  buildReportScreen();
+    if (id === 'prayer')  setupPrayerScreen();
+    if (id === 'message') setupMessageScreen();
+  }
+
+  /* ══════════════════════════════════════════
      画面の組み立て（4つのデータが出揃った状態でまとめて呼ぶ）
   ══════════════════════════════════════════ */
   function buildAllScreens() {
-    /* ── ホーム画面：直近の予定 ── */
+    /* ── ホーム画面：直近の予定（初期アクティブ画面なので即時ビルド）── */
+    _tabBuilt.add('home');
     document.getElementById('home-schedule').innerHTML = buildHomeSchedule();
 
     // 予定テーブルの横スクロール検出 → フェード＋ヒントを表示
@@ -2525,15 +2571,7 @@
       }
     });
 
-    /* ── 報告・祈りの課題 ── */
-    buildReportScreen();
-    setupPrayerScreen();
-
-    /* ── メッセージ・いいね ── */
-    setupMessageScreen();
-    renderFavoriteList(true);
-
-    /* ── ホーム画面：記録を見る（報告・祈り・メッセージが出揃ったここで実行） ── */
+    /* ── ホーム画面：記録を見る（報告・祈り・メッセージ件数の集計のみ。重い描画はしない）── */
     const recordTags = (TAGS && TAGS.scheduleTags.length)
       ? TAGS.scheduleTags
       : [...new Set(DUMMY_SCHEDULE.map(e => e.タグ).filter(Boolean))];
@@ -2542,6 +2580,9 @@
       document.getElementById('home-records').innerHTML = buildHomeRecords();
     });
     document.getElementById('home-records').innerHTML = buildHomeRecords();
+
+    /* ── 報告・祈り・メッセージは初回タブ切り替え時に遅延ビルド ── */
+    // activateTab() 内の _ensureTabBuilt(id) が担当する
   }
 
   /* ══════════════════════════════════════════

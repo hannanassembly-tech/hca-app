@@ -14,6 +14,7 @@
     }
     html, body {
       height: 100%;
+      height: -webkit-fill-available;
       background: #D8C8B4; /* visible on desktop outside the app frame */
       font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -23,7 +24,9 @@
     #app {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100vh;                  /* 古いブラウザ向けフォールバック */
+      height: -webkit-fill-available; /* 旧iOS Safari向け */
+      height: 100dvh;                 /* iOS15.4+/Chrome108+：アドレスバー連動で正しく追従 */
       max-width: 430px;
       margin: 0 auto;
       background: #F6EDE0;

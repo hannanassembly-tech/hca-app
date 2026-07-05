@@ -360,80 +360,80 @@
         </p>
       </div>
 
-      <!-- ── 直近の予定 セクション（ヘッダーがページトップに sticky） ── -->
-      <div style="margin-top:20px;">
-        <div style="
-          position:sticky; top:0; z-index:10;
-          background:#F6EDE0;
-          margin:0 -20px; padding:10px 20px 10px;
-          box-shadow:0 2px 10px rgba(120,80,30,0.08);
-        ">
-          <div style="display:flex; align-items:center; gap:10px;">
+      <!-- ── 直近の予定 ヘッダー（section の直接の子として sticky）── -->
+      <!-- ※ ラッパー div で包むと containing block が section 外になり sticky が効かないため、
+           祈り・メッセージ画面のフィルターと同様に section 直下に配置する -->
+      <div style="
+        position:sticky; top:0; z-index:11;
+        background:#F6EDE0;
+        margin:20px -20px 0; padding:10px 20px 10px;
+        box-shadow:0 2px 10px rgba(120,80,30,0.08);
+      ">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:4px; height:22px; background:#C8781E; border-radius:2px; flex-shrink:0;"></div>
+          <h2 style="font-size:19px; font-weight:800; color:#1E0E04;">直近の予定</h2>
+        </div>
+      </div>
+      <!-- Schedule grid は JS で注入。横スクロール対応 -->
+      <div style="position:relative; margin-top:12px;">
+        <div id="home-schedule" class="card" style="overflow-x:auto; -webkit-overflow-scrolling:touch;"></div>
+        <div id="schedule-fade" style="
+          position:absolute; top:0; right:0; bottom:0; width:32px;
+          background:linear-gradient(to right, transparent, white 85%);
+          border-radius:0 20px 20px 0;
+          pointer-events:none; z-index:2;
+          opacity:0; transition:opacity 0.25s;
+        "></div>
+      </div>
+      <p id="schedule-hint" style="
+        font-size:12px; color:#B0A090; text-align:right;
+        margin-top:5px; padding-right:2px; display:none;
+      ">← スライドして確認</p>
+
+      <!-- ── 記録を見る ヘッダー（section の直接の子として sticky）── -->
+      <!-- ※ z-index:12 で「直近の予定」(z-index:11) より上層にし、
+           両方が top:0 に吸着したとき「記録を見る」が前面に出る -->
+      <div style="
+        position:sticky; top:0; z-index:12;
+        background:#F6EDE0;
+        margin:20px -20px 0; padding:10px 20px 10px;
+        box-shadow:0 2px 10px rgba(120,80,30,0.08);
+      ">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px; min-width:0;">
             <div style="width:4px; height:22px; background:#C8781E; border-radius:2px; flex-shrink:0;"></div>
-            <h2 style="font-size:19px; font-weight:800; color:#1E0E04;">直近の予定</h2>
+            <h2 style="font-size:19px; font-weight:800; color:#1E0E04; white-space:nowrap;">記録を見る</h2>
+          </div>
+
+          <!-- 絞り込みドロップダウン（コンパクト・右寄せ） -->
+          <div style="position:relative; flex-shrink:0;">
+            <button id="recordsTagBtn" style="
+              height:38px; border:none; cursor:pointer;
+              background:#5A4030; border-radius:20px;
+              display:flex; flex-direction:row; align-items:center; justify-content:center;
+              padding:0 14px; gap:5px; white-space:nowrap;
+            ">
+              <span id="recordsTagLabel" style="font-size:13px; font-weight:600; color:white; opacity:0.82;">タグ</span>
+              <svg id="recordsTagChevron" width="14" height="14" viewBox="0 0 24 24"
+                   fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round"
+                   style="transition:transform 0.22s; flex-shrink:0;">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <ul id="recordsTagMenu" style="
+              display:none; position:absolute; top:44px; right:0; z-index:40;
+              background:white; border-radius:14px; overflow:hidden;
+              box-shadow:0 8px 28px rgba(44,22,4,0.16);
+              list-style:none; margin:0; padding:0; max-height:260px; overflow-y:auto;
+              min-width:170px;
+            "></ul>
           </div>
         </div>
-        <!-- Schedule grid は JS で注入。横スクロール対応 -->
-        <div style="position:relative; margin-top:12px;">
-          <div id="home-schedule" class="card" style="overflow-x:auto; -webkit-overflow-scrolling:touch;"></div>
-          <div id="schedule-fade" style="
-            position:absolute; top:0; right:0; bottom:0; width:32px;
-            background:linear-gradient(to right, transparent, white 85%);
-            border-radius:0 20px 20px 0;
-            pointer-events:none; z-index:2;
-            opacity:0; transition:opacity 0.25s;
-          "></div>
-        </div>
-        <p id="schedule-hint" style="
-          font-size:12px; color:#B0A090; text-align:right;
-          margin-top:5px; padding-right:2px; display:none;
-        ">← スライドして確認</p>
       </div>
 
-      <!-- ── 記録を見る セクション（ヘッダーがページトップに sticky） ── -->
-      <div style="margin-top:20px;">
-        <div style="
-          position:sticky; top:0; z-index:10;
-          background:#F6EDE0;
-          margin:0 -20px; padding:10px 20px 10px;
-          box-shadow:0 2px 10px rgba(120,80,30,0.08);
-        ">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-              <div style="width:4px; height:22px; background:#C8781E; border-radius:2px; flex-shrink:0;"></div>
-              <h2 style="font-size:19px; font-weight:800; color:#1E0E04; white-space:nowrap;">記録を見る</h2>
-            </div>
-
-            <!-- 絞り込みドロップダウン（コンパクト・右寄せ） -->
-            <div style="position:relative; flex-shrink:0;">
-              <button id="recordsTagBtn" style="
-                height:38px; border:none; cursor:pointer;
-                background:#5A4030; border-radius:20px;
-                display:flex; flex-direction:row; align-items:center; justify-content:center;
-                padding:0 14px; gap:5px; white-space:nowrap;
-              ">
-                <span id="recordsTagLabel" style="font-size:13px; font-weight:600; color:white; opacity:0.82;">タグ</span>
-                <svg id="recordsTagChevron" width="14" height="14" viewBox="0 0 24 24"
-                     fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"
-                     stroke-linecap="round" stroke-linejoin="round"
-                     style="transition:transform 0.22s; flex-shrink:0;">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
-              <ul id="recordsTagMenu" style="
-                display:none; position:absolute; top:44px; right:0; z-index:40;
-                background:white; border-radius:14px; overflow:hidden;
-                box-shadow:0 8px 28px rgba(44,22,4,0.16);
-                list-style:none; margin:0; padding:0; max-height:260px; overflow-y:auto;
-                min-width:170px;
-              "></ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- Record cards are injected by JS -->
-        <div id="home-records" style="margin-top:12px;"></div>
-      </div>
+      <!-- Record cards are injected by JS -->
+      <div id="home-records" style="margin-top:12px;"></div>
     </section>
 
     <!-- ──── REPORT ────────────────────────── -->

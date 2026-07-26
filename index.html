@@ -894,6 +894,9 @@
   // marked.js が生成する<a>タグを、新しいタブで開くようにする
   // （アプリ内画面から離脱させないため）。bareなURLでも[文字](URL)形式でも両方に効く。
   if (typeof marked !== 'undefined') {
+    // breaks:true … スプレッドシートのセル内改行（Alt+Enterで入力された単一の\n）を
+    // そのまま<br>として反映させる（標準のMarkdownでは単一改行はスペース扱いになるため）
+    marked.setOptions({ breaks: true, gfm: true });
     marked.use({
       renderer: {
         link(href, title, text) {
@@ -1348,6 +1351,12 @@
         initReportToggles();
         window.updateScrollbar?.();
       });
+    } else if (id === 'prayer') {
+      // 祈りの課題タブ：表示後に折りたたみボタン表示判定（display:none の間は scrollHeight=0 になるため）
+      requestAnimationFrame(() => {
+        initPrayerToggles();
+        window.updateScrollbar?.();
+      });
     } else {
       // スクロールバー更新
       requestAnimationFrame(() => window.updateScrollbar?.());
@@ -1418,16 +1427,30 @@
     });
   }
 
-  /* ── 祈りの課題本文：3行超は折りたたみ（プレーンテキスト版） ── */
+  /* ── 祈りの課題本文：3行超は折りたたみ（マークダウン対応） ── */
   function _prayerTextHtml(content) {
     const id = 'pry' + (_reportSeq++);
-    const escaped = (content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const innerHtml = (typeof marked !== 'undefined')
+      ? marked.parse(_linkifySafe(content || ''))
+      : (content || '').replace(/\n/g, '<br>');
     return `
-      <div class="report-text" id="rtext-${id}" style="font-size:16px;color:#2C1A0E;line-height:1.8;white-space:pre-line;">${escaped}</div>
+      <div class="report-text md-body" id="rtext-${id}">${innerHtml}</div>
       <button class="report-toggle" id="rtoggle-${id}" onclick="toggleReportText('${id}')">
         <span class="report-toggle-label">続きを読む</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>`;
+  }
+
+  function initPrayerToggles() {
+    document.querySelectorAll('#prayer-list .report-text').forEach(p => {
+      const id  = p.id.replace('rtext-', '');
+      const btn = document.getElementById('rtoggle-' + id);
+      if (!btn) return;
+      // 3行に収まらず、はみ出している場合だけ「続きを読む」を表示
+      if (p.scrollHeight > p.clientHeight + 2) {
+        btn.style.display = 'flex';
+      }
+    });
   }
 
   /* ── 日々の記録モーダル内の折りたたみボタン表示判定 ── */
@@ -1647,6 +1670,7 @@
   }
 
   function buildPrayerList() {
+    _reportSeq = 0;
     const filtered = DUMMY_PRAYER.filter(p =>
       (!pFilterName   || nameMatchesGroup(p.名前, pFilterName)) &&
       (!pFilterStatus || p.ステータス === pFilterStatus)
@@ -1723,7 +1747,7 @@
                       padding:3px 12px;border-radius:20px;
                     ">${item.ステータス}</span>
                   </div>
-                  <p style="font-size:16px;color:#2C1A0E;line-height:1.8;white-space:pre-line;">${item.課題}</p>
+                  ${_prayerTextHtml(item.課題)}
                 </div>`;
             }).join('')}
           </div>
@@ -1731,7 +1755,10 @@
     });
 
     el.innerHTML = html;
-    requestAnimationFrame(() => window.updateScrollbar?.());
+    requestAnimationFrame(() => {
+      initPrayerToggles();
+      window.updateScrollbar?.();
+    });
   }
 
   /* ══════════════════════════════════════════
